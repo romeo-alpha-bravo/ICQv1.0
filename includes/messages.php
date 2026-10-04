@@ -186,6 +186,7 @@ function messages_unread_count(int $userId): int
 
 // Navigation bar for logged-in pages, with the unread badge and the polling script.
 // $active is the current page file name; $base is '' for root pages, '../' in admin/.
+// The Users link is only shown to admins; admin pages check the role themselves.
 function mail_nav(int $userId, string $active, string $base = ''): void
 {
     $unread = messages_unread_count($userId);
@@ -195,6 +196,12 @@ function mail_nav(int $userId, string $active, string $base = ''): void
         'compose.php' => 'Write',
         'profile.php' => 'Profile',
     ];
+
+    $st = db()->prepare('SELECT role FROM users WHERE id = ?');
+    $st->execute([$userId]);
+    if ($st->fetchColumn() === 'admin') {
+        $items['admin/users.php'] = 'Users';
+    }
 
     echo '<nav class="mail-nav">';
     foreach ($items as $page => $label) {

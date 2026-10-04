@@ -196,3 +196,29 @@ function user_check_password(int $id, string $password): bool
 
     return is_string($hash) && strlen($password) <= 128 && password_verify($password, $hash);
 }
+
+// All users for the admin list, oldest first (no encrypted fields).
+function users_list(): array
+{
+    return db()->query(
+        'SELECT id, uin, login, first_name, last_name, gender, photo_path,
+                role, last_activity, created_at
+           FROM users ORDER BY id'
+    )->fetchAll();
+}
+
+// Changes the role of a user. Admin only; the caller must check that.
+function user_set_role(int $id, string $role): void
+{
+    if (!in_array($role, ['user', 'admin'], true)) {
+        throw new InvalidArgumentException('Unknown role.');
+    }
+    $st = db()->prepare('UPDATE users SET role = ? WHERE id = ?');
+    $st->execute([$role, $id]);
+}
+
+// Number of users with the admin role (to keep at least one).
+function admin_count(): int
+{
+    return (int)db()->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
+}
