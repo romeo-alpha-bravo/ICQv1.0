@@ -5,6 +5,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/users.php';
 require_once __DIR__ . '/includes/image.php';
+require_once __DIR__ . '/includes/messages.php';
 
 $user = require_login();   // only logged-in users; data of the logged-in user only
 $id   = (int)$user['id'];
@@ -82,6 +83,7 @@ $val     = static fn(string $k): string => e((string)($old[$k] ?? ''));
 $genders = ['m' => 'Male', 'f' => 'Female', 'other' => 'Other'];
 
 page_start('My profile');
+mail_nav($id, 'profile.php');
 ?>
 <h1>My profile</h1>
 <?php if ($saved): ?><p class="info">Changes saved.</p><?php endif; ?>
@@ -159,11 +161,6 @@ page_start('My profile');
     <p><button type="submit">Save</button></p>
   </form>
 </section>
-
-<form method="post" action="logout.php">
-  <?php csrf_field(); ?>
-  <button type="submit">Log out</button>
-</form>
 
 <script>
 // Instant client-side checks. The server repeats all of them.
