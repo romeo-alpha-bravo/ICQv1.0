@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/helpers.php';
+require_once __DIR__ . '/includes/throttle.php';
 
 start_secure_session();
 if (!empty($_SESSION['uid'])) {
@@ -21,6 +22,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pw    = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
 
     try {
+        if (!login_throttle_ok($login)) {
+            // Too many failed attempts from this login name or address.
+            throw new DomainException('Too many failed attempts. Please try again in 15 minutes.');
+        }
+
         $st = db()->prepare('SELECT id, password_hash FROM users WHERE login = ?');
         $st->execute([$login]);
         $row = $st->fetch();
@@ -30,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok   = strlen($pw) <= 128 && password_verify($pw, $hash) && $row !== false;
 
         if ($ok) {
+            login_throttle_clear($login);
             if (password_needs_rehash($row['password_hash'], PASSWORD_ARGON2ID)) {
                 $up = db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
                 $up->execute([password_hash($pw, PASSWORD_ARGON2ID), $row['id']]);
@@ -38,7 +45,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: profile.php');
             exit;
         }
+        login_throttle_fail($login);
         $error = 'Invalid login or password.'; // same text for both cases
+    } catch (DomainException $ex) {
+        $error = $ex->getMessage();
     } catch (Throwable $ex) {
         error_log('UIN-Mail login: ' . $ex->getMessage());
         $error = ERR_GENERIC;

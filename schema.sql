@@ -41,6 +41,17 @@ CREATE TABLE IF NOT EXISTS messages (
   INDEX idx_recipient_unread (recipient_id, read_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Failed login attempts, counted per login name and per IP (see includes/throttle.php).
+-- Rows older than the throttle window are deleted by the app itself.
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id       INT AUTO_INCREMENT PRIMARY KEY,
+  login    VARCHAR(50)    NOT NULL,
+  ip       VARBINARY(16)  NOT NULL,
+  tried_at DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_login_time (login, tried_at),
+  INDEX idx_ip_time (ip, tried_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Default admin (LOCKED placeholder).
 -- Encrypted fields need the app key, which must not live in SQL, so this row
 -- cannot be complete yet. password_hash '!' is not a valid hash, so

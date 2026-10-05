@@ -15,7 +15,7 @@ try {
     $rows = null;
 }
 
-page_start('Sent');
+page_start('Sent', '', $user);
 mail_nav($id, 'sent.php');
 ?>
 <h1>Sent</h1>

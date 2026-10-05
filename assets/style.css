@@ -1,0 +1,306 @@
+/* UIN-Mail: retro desktop skin (Win98 / early messenger era).
+   One window on a teal desktop. Beveled edges are drawn with inset shadows,
+   so no images are needed. Mobile first: the window fills small screens. */
+
+:root {
+  --desktop:   #3a7a7a;   /* teal desktop */
+  --face:      #c6c6c6;   /* window and button face */
+  --light:     #ffffff;   /* top-left highlight */
+  --face-lit:  #e4e4e4;   /* soft highlight */
+  --shade:     #868686;   /* soft shadow */
+  --dark:      #1b1b1b;   /* hard shadow */
+  --title-a:   #00207a;   /* title bar gradient */
+  --title-b:   #2a7fd4;
+  --ink:       #101010;
+  --online:    #1f7a1f;   /* status flower */
+  --offline:   #7a7a7a;
+  --alert:     #a81414;
+}
+
+/* Raised and sunken edges, the signature of the era */
+.bevel-up {
+  box-shadow: inset -1px -1px var(--dark), inset 1px 1px var(--light),
+              inset -2px -2px var(--shade), inset 2px 2px var(--face-lit);
+}
+.bevel-down {
+  box-shadow: inset 1px 1px var(--shade), inset -1px -1px var(--light),
+              inset 2px 2px var(--dark), inset -2px -2px var(--face-lit);
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--desktop); }
+
+body {
+  margin: 0;
+  padding: 0;
+  font: 13px/1.45 Tahoma, "MS Sans Serif", Geneva, Verdana, sans-serif;
+  color: var(--ink);
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0 2px, transparent 2px 4px),
+    var(--desktop);
+  min-height: 100vh;
+}
+
+/* ---------- The window ---------- */
+
+.window {
+  max-width: 100%;
+  width: 940px;
+  margin: 0 auto;
+  padding: 3px;
+  background: var(--face);
+}
+
+@media (min-width: 720px) {
+  body { padding: 24px 16px; }
+  .window { box-shadow: inset -1px -1px var(--dark), inset 1px 1px var(--light),
+                        inset -2px -2px var(--shade), inset 2px 2px var(--face-lit),
+                        4px 4px 0 rgba(0,0,0,.25); }
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  color: #fff;
+  background: linear-gradient(90deg, var(--title-a), var(--title-b));
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.titlebar .flower {
+  width: 11px; height: 11px;
+  border-radius: 50% 50% 50% 0;
+  background: #35b135;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.35);
+  flex: none;
+}
+
+.titlebar .uin { margin-left: auto; font-weight: 400; opacity: .85; }
+
+.content { padding: 12px; }
+
+/* ---------- Navigation ---------- */
+
+/* sits inside .content, so negative margins make it span the window */
+.mail-nav {
+  margin: -12px -12px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: var(--face);
+  border-bottom: 1px solid var(--shade);
+}
+
+.mail-nav a {
+  display: inline-block;
+  padding: 5px 10px;
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--face);
+  box-shadow: inset -1px -1px var(--dark), inset 1px 1px var(--light),
+              inset -2px -2px var(--shade), inset 2px 2px var(--face-lit);
+}
+
+.mail-nav a:hover { background: var(--face-lit); }
+
+.mail-nav a.active {
+  font-weight: 700;
+  box-shadow: inset 1px 1px var(--shade), inset -1px -1px var(--light),
+              inset 2px 2px var(--dark), inset -2px -2px var(--face-lit);
+}
+
+.mail-nav .logout { margin-left: auto; }
+
+.badge {
+  display: inline-block;
+  min-width: 17px;
+  padding: 0 4px;
+  margin-left: 2px;
+  text-align: center;
+  color: #fff;
+  background: var(--alert);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ---------- Typography ---------- */
+
+h1 { font-size: 17px; margin: 0 0 12px; }
+h2 { font-size: 14px; margin: 18px 0 8px; }
+p  { margin: 0 0 10px; max-width: 68ch; }
+
+a { color: #0a3c8c; }
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible { outline: 2px dotted var(--ink); outline-offset: 1px; }
+
+.info, .error {
+  padding: 7px 9px;
+  margin: 0 0 12px;
+  background: var(--face-lit);
+  box-shadow: inset 1px 1px var(--shade), inset -1px -1px var(--light),
+              inset 2px 2px var(--dark), inset -2px -2px var(--face-lit);
+}
+.error { color: var(--alert); font-weight: 700; }
+
+/* field-level errors sit tight under their input */
+p > .error { margin: 4px 0 0; font-weight: 400; }
+
+/* ---------- Forms ---------- */
+
+form p { max-width: 460px; }
+
+label {
+  display: block;
+  margin-bottom: 3px;
+  font-weight: 700;
+}
+
+input[type=text], input[type=email], input[type=tel], input[type=password],
+input[type=file], select, textarea {
+  width: 100%;
+  padding: 5px 6px;
+  font: inherit;
+  color: var(--ink);
+  background: #fff;
+  border: 0;
+  box-shadow: inset 1px 1px var(--shade), inset -1px -1px var(--light),
+              inset 2px 2px var(--dark), inset -2px -2px var(--face-lit);
+}
+
+/* iOS zooms into inputs under 16px */
+@media (max-width: 719px) {
+  input, select, textarea, button { font-size: 16px; }
+}
+
+textarea { resize: vertical; min-height: 160px; font-family: inherit; }
+input[type=file] { padding: 4px; background: var(--face); }
+
+button {
+  min-width: 92px;
+  padding: 6px 14px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--face);
+  border: 0;
+  cursor: pointer;
+  box-shadow: inset -1px -1px var(--dark), inset 1px 1px var(--light),
+              inset -2px -2px var(--shade), inset 2px 2px var(--face-lit);
+}
+button:hover { background: var(--face-lit); }
+button:active {
+  box-shadow: inset 1px 1px var(--shade), inset -1px -1px var(--light),
+              inset 2px 2px var(--dark), inset -2px -2px var(--face-lit);
+}
+
+.inline { display: inline; }
+.inline button { min-width: 0; padding: 3px 8px; font-size: 12px; }
+
+small { color: #3d3d3d; }
+
+/* ---------- Profile ---------- */
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 3px 14px;
+  margin: 0 0 14px;
+  padding: 9px;
+  background: var(--face-lit);
+  box-shadow: inset 1px 1px var(--shade), inset -1px -1px var(--light),
+              inset 2px 2px var(--dark), inset -2px -2px var(--face-lit);
+}
+dt { font-weight: 700; }
+dd { margin: 0; word-break: break-word; }
+
+.photo {
+  float: right;
+  margin: 0 0 10px 14px;
+  padding: 3px;
+  background: var(--face);
+  box-shadow: inset 1px 1px var(--shade), inset -1px -1px var(--light),
+              inset 2px 2px var(--dark), inset -2px -2px var(--face-lit);
+}
+.photo img { display: block; width: 110px; height: auto; }
+
+/* ---------- Tables (mail folders, user list) ---------- */
+
+.table-wrap {
+  overflow-x: auto;          /* wide tables scroll, the page never does */
+  background: #fff;
+  box-shadow: inset 1px 1px var(--shade), inset -1px -1px var(--light),
+              inset 2px 2px var(--dark), inset -2px -2px var(--face-lit);
+}
+
+table { width: 100%; border-collapse: collapse; background: #fff; }
+
+th, td {
+  padding: 5px 8px;
+  text-align: left;
+  border-bottom: 1px solid #d6d6d6;
+  white-space: nowrap;
+}
+
+th {
+  background: var(--face);
+  font-size: 12px;
+  border-bottom: 1px solid var(--shade);
+  box-shadow: inset -1px -1px var(--shade), inset 1px 1px var(--light);
+}
+
+tr.unread td { font-weight: 700; }
+td.actions { display: flex; gap: 6px; align-items: center; }
+
+/* ---------- Contact list ---------- */
+
+.contacts { list-style: none; margin: 0; padding: 0; }
+
+.contacts li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: #fff;
+  border-bottom: 1px solid #e4e4e4;
+}
+
+.contacts .flower {
+  width: 10px; height: 10px;
+  flex: none;
+  border-radius: 50% 50% 50% 0;
+  background: var(--offline);
+}
+.contacts .is-online .flower { background: var(--online); }
+.contacts .name { font-weight: 700; }
+.contacts .uin { color: #3d3d3d; }
+.contacts .write { margin-left: auto; }
+
+.group-title {
+  padding: 4px 8px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--face);
+  box-shadow: inset -1px -1px var(--shade), inset 1px 1px var(--light);
+}
+
+/* ---------- One message ---------- */
+
+.message-body {
+  padding: 10px;
+  background: #fff;
+  max-width: 72ch;
+  box-shadow: inset 1px 1px var(--shade), inset -1px -1px var(--light),
+              inset 2px 2px var(--dark), inset -2px -2px var(--face-lit);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

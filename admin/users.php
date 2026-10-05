@@ -50,9 +50,7 @@ try {
     $error = ERR_GENERIC;
 }
 
-$online = (int)(require __DIR__ . '/../config.php')['online_window'];
-
-page_start('Users', '../');
+page_start('Users', '../', $admin);
 mail_nav($adminId, 'admin/users.php', '../');
 ?>
 <h1>Users</h1>
@@ -69,9 +67,8 @@ mail_nav($adminId, 'admin/users.php', '../');
     </thead>
     <tbody>
     <?php foreach ($rows as $u):
-        $isOnline = $u['last_activity'] !== null
-            && (time() - strtotime($u['last_activity'])) <= $online;
-        $isSelf = (int)$u['id'] === $adminId;
+        $isOnline = is_online($u['last_activity']);
+        $isSelf   = (int)$u['id'] === $adminId;
     ?>
       <tr>
         <td><?= e((string)$u['uin']) ?></td>

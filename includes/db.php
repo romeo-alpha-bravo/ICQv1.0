@@ -22,6 +22,9 @@ function db(): PDO
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false, // real prepared statements
         ]);
+        // Store and read every DATETIME in UTC, whatever the server is set to;
+        // display is converted to the app timezone in msg_time().
+        $pdo->exec("SET time_zone = '+00:00'");
     } catch (PDOException $ex) {
         // Log details server-side; do not chain $ex, its trace holds the DB password.
         error_log('UIN-Mail DB connection failed: ' . $ex->getMessage());

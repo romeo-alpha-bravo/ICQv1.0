@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $val     = static fn(string $k): string => e((string)($old[$k] ?? ''));
 $genders = ['m' => 'Male', 'f' => 'Female', 'other' => 'Other'];
 
-page_start('Edit user', '../');
+page_start('Edit user', '../', $admin);
 mail_nav($adminId, 'admin/users.php', '../');
 ?>
 <h1>Edit user <?= e($target['login']) ?> (UIN <?= e((string)$target['uin']) ?>)</h1>
@@ -113,7 +113,7 @@ mail_nav($adminId, 'admin/users.php', '../');
 <?php if (isset($_GET['saved'])): ?><p class="info">Changes saved.</p><?php endif; ?>
 <?php field_error($errors, 'form'); ?>
 
-<img src="../uploads/<?= e($target['photo_path']) ?>" alt="Profile photo" width="120" onerror="this.hidden=true">
+<div class="photo"><img src="../uploads/<?= e($target['photo_path']) ?>" alt="Profile photo"></div>
 
 <form method="post" action="edit.php" enctype="multipart/form-data" id="edit-form">
   <?php csrf_field(); ?>

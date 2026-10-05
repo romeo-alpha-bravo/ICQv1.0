@@ -8,7 +8,7 @@
   var base  = badge.dataset.base || '';
   var last  = parseInt(badge.dataset.count || '0', 10);
   var title = document.title;
-  var sound = new Audio(base + 'assets/notify.mp3');
+  var sound = new Audio(base + 'assets/notify.wav');
 
   function show(count) {
     badge.textContent = String(count);

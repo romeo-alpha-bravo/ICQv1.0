@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $val     = static fn(string $k): string => e((string)($old[$k] ?? ''));
 $genders = ['m' => 'Male', 'f' => 'Female', 'other' => 'Other'];
 
-page_start('My profile');
+page_start('My profile', '', $full);
 mail_nav($id, 'profile.php');
 ?>
 <h1>My profile</h1>
@@ -90,8 +90,7 @@ mail_nav($id, 'profile.php');
 <?php field_error($errors, 'form'); ?>
 
 <section>
-  <img src="uploads/<?= e($full['photo_path']) ?>" alt="Profile photo" width="120"
-       onerror="this.hidden=true">
+  <div class="photo"><img src="uploads/<?= e($full['photo_path']) ?>" alt="Profile photo"></div>
   <dl>
     <dt>UIN</dt>       <dd><?= e((string)$full['uin']) ?></dd>
     <dt>Login</dt>     <dd><?= e($full['login']) ?></dd>

@@ -1,0 +1,7 @@
+# Uploaded photos are data, never code: never run anything from this directory.
+php_flag engine off
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps
+AddType text/plain .php .phtml .php3 .php4 .php5 .php7 .php8 .phps

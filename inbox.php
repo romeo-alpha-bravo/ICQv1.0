@@ -15,7 +15,7 @@ try {
     $rows = null;
 }
 
-page_start('Inbox');
+page_start('Inbox', '', $user);
 mail_nav($id, 'inbox.php');
 ?>
 <h1>Inbox</h1>

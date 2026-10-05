@@ -27,7 +27,7 @@ if ($msg === null && $error === '') {
     $error = 'Message not found.';
 }
 
-page_start($msg !== null ? $msg['subject'] : 'Message');
+page_start($msg !== null ? $msg['subject'] : 'Message', '', $user);
 mail_nav($id, '');
 ?>
 <?php if ($msg === null): ?>

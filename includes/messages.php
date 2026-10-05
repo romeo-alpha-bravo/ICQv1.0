@@ -25,10 +25,39 @@ function msg_decrypt_safe(string $blob): string
     }
 }
 
-// Formats a DATETIME from the DB for display.
+// Parses a DATETIME coming from the DB (always UTC, see db.php).
+function msg_utc(?string $dt): ?DateTimeImmutable
+{
+    if ($dt === null || $dt === '') {
+        return null;
+    }
+    try {
+        return new DateTimeImmutable($dt, new DateTimeZone('UTC'));
+    } catch (Exception) {
+        return null;
+    }
+}
+
+// Formats a DATETIME from the DB in the configured display timezone.
 function msg_time(?string $dt): string
 {
-    return $dt === null ? '' : date('d.m.Y H:i', strtotime($dt));
+    static $tz = null;
+    if ($tz === null) {
+        $tz = new DateTimeZone((string)(require __DIR__ . '/../config.php')['timezone']);
+    }
+    $time = msg_utc($dt);
+    return $time === null ? '' : $time->setTimezone($tz)->format('d.m.Y H:i');
+}
+
+// Online = active within the window from config.php (5 minutes by default).
+function is_online(?string $lastActivity): bool
+{
+    static $window = null;
+    if ($window === null) {
+        $window = (int)(require __DIR__ . '/../config.php')['online_window'];
+    }
+    $time = msg_utc($lastActivity);
+    return $time !== null && (time() - $time->getTimestamp()) <= $window;
 }
 
 // ---------- Public functions ----------
@@ -191,10 +220,11 @@ function mail_nav(int $userId, string $active, string $base = ''): void
 {
     $unread = messages_unread_count($userId);
     $items  = [
-        'inbox.php'   => 'Inbox',
-        'sent.php'    => 'Sent',
-        'compose.php' => 'Write',
-        'profile.php' => 'Profile',
+        'inbox.php'    => 'Inbox',
+        'sent.php'     => 'Sent',
+        'compose.php'  => 'Write',
+        'contacts.php' => 'Contacts',
+        'profile.php'  => 'Profile',
     ];
 
     $st = db()->prepare('SELECT role FROM users WHERE id = ?');

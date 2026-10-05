@@ -65,6 +65,7 @@ return [
     ],
     'enc_key'         => $encKey,   // raw 32 bytes
     'hmac_key'        => $hmacKey,  // raw 32 bytes
+    'timezone'        => $get('UIN_TIMEZONE', 'Europe/Prague'), // display only; DB stays UTC
     'session_timeout' => 1200,      // seconds of inactivity (20 min)
     'online_window'   => 300,       // seconds for "online" status (5 min)
     'upload_dir'      => $get('UIN_UPLOAD_DIR', __DIR__ . '/uploads'),

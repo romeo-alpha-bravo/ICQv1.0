@@ -67,7 +67,7 @@ try {
     $contacts = [];
 }
 
-page_start('Write a message');
+page_start('Write a message', '', $user);
 mail_nav($id, 'compose.php');
 ?>
 <h1>Write a message</h1>
