@@ -35,6 +35,7 @@ mail_nav($id, '');
 <?php else: ?>
   <article class="message">
     <h1><?= e($msg['subject']) ?></h1>
+    <div class="photo"><img src="uploads/<?= e($msg['sender_photo']) ?>" alt="Photo of <?= e($msg['sender_first']) ?>"></div>
     <dl>
       <dt>From</dt><dd><?= e($msg['sender_first'] . ' ' . $msg['sender_last']) ?> #<?= e((string)$msg['sender_uin']) ?></dd>
       <dt>To</dt><dd><?= e($msg['recipient_first'] . ' ' . $msg['recipient_last']) ?> #<?= e((string)$msg['recipient_uin']) ?></dd>

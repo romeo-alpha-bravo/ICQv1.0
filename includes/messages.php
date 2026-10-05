@@ -107,7 +107,7 @@ function recipient_by_uin(int $uin): ?array
 function contacts_list(int $exceptId): array
 {
     $st = db()->prepare(
-        'SELECT id, uin, first_name, last_name, last_activity FROM users
+        'SELECT id, uin, first_name, last_name, photo_path, last_activity FROM users
           WHERE id <> ? ORDER BY last_name, first_name'
     );
     $st->execute([$exceptId]);
@@ -139,7 +139,7 @@ function messages_inbox(int $userId): array
 {
     $st = db()->prepare(
         'SELECT m.id, m.subject_enc, m.sent_at, m.read_at,
-                u.uin, u.first_name, u.last_name
+                u.uin, u.first_name, u.last_name, u.photo_path
            FROM messages m JOIN users u ON u.id = m.sender_id
           WHERE m.recipient_id = ?
           ORDER BY m.sent_at DESC, m.id DESC
@@ -154,7 +154,7 @@ function messages_sent(int $userId): array
 {
     $st = db()->prepare(
         'SELECT m.id, m.subject_enc, m.sent_at, m.read_at,
-                u.uin, u.first_name, u.last_name
+                u.uin, u.first_name, u.last_name, u.photo_path
            FROM messages m JOIN users u ON u.id = m.recipient_id
           WHERE m.sender_id = ?
           ORDER BY m.sent_at DESC, m.id DESC
@@ -180,6 +180,7 @@ function message_get(int $messageId, int $userId): ?array
         'SELECT m.id, m.sender_id, m.recipient_id, m.subject_enc, m.body_enc,
                 m.sent_at, m.read_at,
                 s.uin AS sender_uin, s.first_name AS sender_first, s.last_name AS sender_last,
+                s.photo_path AS sender_photo,
                 r.uin AS recipient_uin, r.first_name AS recipient_first, r.last_name AS recipient_last
            FROM messages m
            JOIN users s ON s.id = m.sender_id

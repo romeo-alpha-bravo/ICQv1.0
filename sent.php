@@ -31,7 +31,8 @@ mail_nav($id, 'sent.php');
       <tbody>
       <?php foreach ($rows as $m): ?>
         <tr>
-          <td><?= e($m['first_name'] . ' ' . $m['last_name']) ?> <small>#<?= e((string)$m['uin']) ?></small></td>
+          <td class="person"><?= avatar_img($m['photo_path']) ?>
+              <span><?= e($m['first_name'] . ' ' . $m['last_name']) ?> <small>#<?= e((string)$m['uin']) ?></small></span></td>
           <td><a href="message.php?id=<?= e((string)$m['id']) ?>"><?= e($m['subject']) ?></a></td>
           <td><?= e(msg_time($m['sent_at'])) ?></td>
           <td><?= $m['read_at'] === null ? 'not read' : 'read' ?></td>

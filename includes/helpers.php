@@ -4,7 +4,7 @@ declare(strict_types=1);
 // Small output helpers shared by all pages. Include with require_once.
 // csrf_field() needs includes/auth.php to be loaded as well.
 
-const APP_NAME    = 'UIN-Mail';
+const APP_NAME    = 'ICQ1.0';
 const ERR_GENERIC = 'Something went wrong. Please try again later.';
 
 // Escapes a value for safe output in HTML.
@@ -43,6 +43,14 @@ function page_start(string $title, string $base = '', ?array $user = null): void
 function page_end(): void
 {
     echo "\n</div></main></body></html>";
+}
+
+// Small avatar <img> for lists. $photo is users.photo_path (file name inside uploads/),
+// $base is '' for root pages and '../' in admin/. alt is empty: the name is next to it.
+function avatar_img(string $photo, string $base = '', int $size = 32): string
+{
+    return '<img class="avatar" src="' . e($base) . 'uploads/' . e($photo) . '" alt=""'
+         . ' width="' . $size . '" height="' . $size . '" loading="lazy" decoding="async">';
 }
 
 // Hidden CSRF input for POST forms.

@@ -258,6 +258,20 @@ th {
 tr.unread td { font-weight: 700; }
 td.actions { display: flex; gap: 6px; align-items: center; }
 
+/* ---------- Avatars ---------- */
+
+.avatar {
+  display: block;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  object-fit: cover;          /* square crop, no squashed faces */
+  background: var(--face);
+  box-shadow: 0 0 0 1px var(--shade), 1px 1px 0 1px var(--light);
+}
+
+td.person { display: flex; align-items: center; gap: 8px; }
+
 /* ---------- Contact list ---------- */
 
 .contacts { list-style: none; margin: 0; padding: 0; }

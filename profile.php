@@ -99,7 +99,7 @@ mail_nav($id, 'profile.php');
     <dt>Email</dt>     <dd><?= e($full['email']) ?></dd>
     <dt>Phone</dt>     <dd><?= e($full['phone']) ?></dd>
     <dt>Gender</dt>    <dd><?= e($genders[$full['gender']] ?? '') ?></dd>
-    <dt>Registered</dt><dd><?= e($full['created_at']) ?></dd>
+    <dt>Registered</dt><dd><?= e(msg_time($full['created_at'])) ?></dd>
   </dl>
 </section>
 

@@ -39,6 +39,7 @@ function contact_group(string $title, array $rows, bool $isOnline): void
     foreach ($rows as $c) {
         echo '<li class="' . ($isOnline ? 'is-online' : '') . '">'
            . '<span class="flower" aria-hidden="true"></span>'
+           . avatar_img($c['photo_path'])
            . '<span class="name">' . e($c['first_name'] . ' ' . $c['last_name']) . '</span>'
            . '<span class="uin">#' . e((string)$c['uin']) . '</span>'
            . '<a class="write" href="compose.php?to=' . e((string)$c['uin']) . '">Write</a>'
