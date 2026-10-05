@@ -52,6 +52,22 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   INDEX idx_ip_time (ip, tried_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Password reset requests. Only a SHA-256 hash of the e-mailed token is stored, so a
+-- leaked database does not give usable links. Rows with user_id NULL are requests for
+-- unknown e-mails: they exist only to count attempts per IP (no way to probe accounts).
+CREATE TABLE IF NOT EXISTS password_resets (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT            NULL,
+  token_hash CHAR(64)       NULL UNIQUE,
+  ip         VARBINARY(16)  NOT NULL,
+  created_at DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME       NOT NULL,
+  used_at    DATETIME       NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_ip_time   (ip, created_at),
+  INDEX idx_user_time (user_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Default admin (LOCKED placeholder).
 -- Encrypted fields need the app key, which must not live in SQL, so this row
 -- cannot be complete yet. password_hash '!' is not a valid hash, so

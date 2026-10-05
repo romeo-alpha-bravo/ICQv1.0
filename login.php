@@ -12,7 +12,12 @@ if (!empty($_SESSION['uid'])) {
 }
 
 $error = '';
-$info  = isset($_GET['timeout']) ? 'You were logged out after 20 minutes of inactivity.' : '';
+$info  = '';
+if (isset($_GET['timeout'])) {
+    $info = 'You were logged out after 20 minutes of inactivity.';
+} elseif (isset($_GET['reset'])) {
+    $info = 'Your password was changed. You can log in now.';
+}
 $login = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -75,5 +80,6 @@ page_start('Log in');
   </p>
   <p><button type="submit">Log in</button></p>
 </form>
+<p><a href="forgot.php">Forgot your password?</a></p>
 <p>No account yet? <a href="register.php">Register</a></p>
 <?php page_end(); ?>

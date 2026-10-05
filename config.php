@@ -54,6 +54,12 @@ if (hash_equals($encKey, $hmacKey)) {
     $fail('UIN_ENC_KEY and UIN_HMAC_KEY must differ');
 }
 
+// How e-mail is delivered: log (development, default), smtp or mail.
+$mailMode = $get('UIN_MAIL_MODE', 'log');
+if (!in_array($mailMode, ['log', 'smtp', 'mail'], true)) {
+    $fail('UIN_MAIL_MODE must be log, smtp or mail');
+}
+
 return [
     'db' => [
         'host'    => $get('DB_HOST', 'localhost'),
@@ -66,6 +72,16 @@ return [
     'enc_key'         => $encKey,   // raw 32 bytes
     'hmac_key'        => $hmacKey,  // raw 32 bytes
     'timezone'        => $get('UIN_TIMEZONE', 'Europe/Prague'), // display only; DB stays UTC
+    // Absolute address of the site, used in e-mailed links. Set from config, never
+    // taken from the request, so a forged Host header cannot poison reset links.
+    'base_url'        => rtrim((string)$get('UIN_BASE_URL', 'http://localhost:8000'), '/'),
+    'mail'            => [
+        'mode' => $mailMode,
+        'host' => $get('UIN_MAIL_HOST', '127.0.0.1'),   // smtp mode
+        'port' => (int)$get('UIN_MAIL_PORT', '1025'),   // smtp mode (Mailpit default)
+        'from' => $get('UIN_MAIL_FROM', 'no-reply@icq1.local'),
+    ],
+    'reset_ttl'       => 1800,      // password reset link lifetime, seconds (30 min)
     'session_timeout' => 1200,      // seconds of inactivity (20 min)
     'online_window'   => 300,       // seconds for "online" status (5 min)
     'upload_dir'      => $get('UIN_UPLOAD_DIR', __DIR__ . '/uploads'),
