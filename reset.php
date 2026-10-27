@@ -10,7 +10,7 @@ require_once __DIR__ . '/includes/password_reset.php';
 
 start_secure_session();
 if (!empty($_SESSION['uid'])) {
-    header('Location: profile.php');
+    header('Location: chat.php');
     exit;
 }
 

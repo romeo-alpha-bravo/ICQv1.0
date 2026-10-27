@@ -8,14 +8,15 @@ followed by the known limitations.
 | Threat | Protection | Where |
 |---|---|---|
 | Stolen database reveals passwords | Argon2id hashes | `users.php`, `login.php` |
-| Stolen database reveals personal data and mail | AES-256-GCM encryption | `crypto.php` |
+| Stolen database reveals personal data, mail and chats | AES-256-GCM encryption | `crypto.php`, `chat.php` |
 | Probing who is registered by e-mail | keyed HMAC instead of a plain hash | `crypto.php` |
 | SQL injection | prepared statements only | all modules |
-| Cross-site scripting (XSS) | every output escaped with `e()` | all pages |
-| Cross-site request forgery (CSRF) | token in every POST form, `SameSite=Strict` cookie | `auth.php` |
+| Cross-site scripting (XSS) | every output escaped with `e()`; the messenger inserts data only as text | all pages, `messenger.js` |
+| Cross-site request forgery (CSRF) | token in every POST form and API action, `SameSite=Strict` cookie | `auth.php`, `api.php` |
 | Session hijacking and fixation | cookie flags, strict mode, new id at login, fingerprint | `auth.php` |
 | Forgotten open session | logout after 20 minutes of inactivity | `auth.php` |
 | Access to admin pages or other people's data | server-side role and ownership checks | `auth.php`, `messages.php`, pages |
+| Spam and stalking in the messenger | chat and status only between accepted contacts | `contacts.php`, `chat.php` |
 | Malicious uploads | content check, size limits, re-encoding, random names | `image.php`, `uploads/.htaccess` |
 | Password guessing | 10 failures per 15 minutes per login or IP | `throttle.php` |
 | Password reset abuse | hashed single-use tokens, limits, no account probing | `password_reset.php` |
@@ -90,7 +91,7 @@ the query and the values separately. Binary values are bound as `PDO::PARAM_LOB`
 | `session_regenerate_id(true)` at login and after a password change | session fixation |
 | Session bound to a fingerprint of the browser (User-Agent) | a stolen cookie used from a different browser is rejected |
 | Logout after 1200 s without activity | sessions left open on shared computers |
-| Background polling (`AUTH_API`) does not refresh the timer | an open but unused tab still times out |
+| Background polling (GET to `api/*`) does not refresh the timer; API actions (POST) do | an open but unused tab still times out |
 | User row and role read from the database on every request | role changes and deleted accounts take effect immediately |
 
 The session id is not rotated periodically during a session: parallel `fetch` requests can
@@ -106,6 +107,29 @@ race with a rotation and log the user out. It changes at login and after a passw
   "Message not found", exactly like a non-existent one, so ids reveal nothing.
 - Admins cannot change their own role, and the last admin cannot lose the role, so the system
   cannot lock itself out.
+
+## Messenger
+
+- **Authorization decides everything.** Chatting, "is typing", status, status text and "last
+  seen" exist only between two users who both accepted each other. `chat_send()`,
+  `chat_fetch()` (through the API) and `typing_set()` check `contacts_are_friends()` in the
+  database on every call, so a crafted request cannot write to a stranger or read a
+  conversation. `api/chat.php` answers 404 for "no such user" and "not your contact" alike.
+- **Search and info cards are minimal.** They show name, UIN, photo, city and "about me", never
+  e-mail, phone or role, and no status before authorization. Search needs at least two
+  characters, returns at most 20 results and escapes the `LIKE` wildcards `%` and `_`.
+- **Invisible really hides.** An invisible user appears offline, and their "last seen" is not
+  sent at all, because a fresh time would give them away.
+- **Chat bodies are encrypted** like letters (AES-256-GCM, `chat_messages.body_enc`).
+- **The client never renders HTML from the server.** `messenger.js` builds every element with
+  `textContent` and attributes, so `<script>` in a message is displayed as text. Tested in
+  the end-to-end run.
+- **API actions are protected like forms.** Every POST goes through `api_post_body()`: POST
+  only, CSRF token from the `X-CSRF-Token` header, JSON body capped at 64 KB. Users are
+  addressed by UIN; internal ids never reach the browser.
+- **Polling does not keep a session alive.** GET requests to the API are passive (see
+  [Sessions](#sessions)), so an unattended tab is still logged out after 20 minutes. Logging
+  out marks the user offline at once.
 
 ## File uploads
 
@@ -185,4 +209,5 @@ These are conscious trade-offs for a course project.
 | Local development runs over HTTP | the `Secure` flag is off locally | HTTPS on the real server |
 | `log` mail mode prints reset links into the log | anyone who can read the log can reset passwords | development only; use `smtp` or `mail` on a server |
 | Per-IP limits use `REMOTE_ADDR` | behind a reverse proxy, all users share one IP | read the client IP from a trusted proxy header |
-| All logged-in users can see every user's name and UIN | intended: it is a messenger with a contact list | – |
+| All logged-in users can find every user by name or UIN | intended, as in classic messengers; status stays private until authorization | – |
+| Polling every 3 s | one small request per open tab; fine for a course project, a large service would use WebSockets or server-sent events | – |

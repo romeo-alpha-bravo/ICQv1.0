@@ -1,22 +1,21 @@
 <?php
 declare(strict_types=1);
 
-// JSON: {"unread": N} for the notification badge (polled by assets/notify.js).
-// AUTH_API: polling does not extend the session; errors come back as JSON.
+// GET: unread counters for the menu badges on pages other than the messenger
+// (polled by assets/notify.js). {"unread": mail, "chat": instant messages}
 define('AUTH_API', true);
 
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/api.php';
 require_once __DIR__ . '/../includes/messages.php';
-
-header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store');
+require_once __DIR__ . '/../includes/chat.php';
 
 $user = require_login(); // 401 JSON when the session has expired
 
-try {
-    echo json_encode(['unread' => messages_unread_count((int)$user['id'])]);
-} catch (Throwable $ex) {
-    error_log('UIN-Mail api/unread: ' . $ex->getMessage());
-    http_response_code(500);
-    echo json_encode(['error' => 'internal']);
-}
+api_run(static function () use ($user): array {
+    $me = (int)$user['id'];
+    chat_mark_delivered($me); // an open tab of the app counts as "delivered"
+    return [
+        'unread' => messages_unread_count($me),
+        'chat'   => chat_unread_total($me),
+    ];
+});

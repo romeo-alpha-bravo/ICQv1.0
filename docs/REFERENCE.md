@@ -24,7 +24,8 @@ All settings are listed in [INSTALL.md](INSTALL.md#all-settings).
 | `mail` | `mode`, `host`, `port`, `from` |
 | `reset_ttl` | 1800 |
 | `session_timeout` | 1200 |
-| `online_window` | 300 |
+| `online_window` | 90 (seconds without any request → offline) |
+| `away_after` | 600 (seconds without a real action → Away) |
 | `upload_dir`, `photo_width` (800), `photo_quality` (90) | photo settings |
 
 Throws `RuntimeException('Server configuration error')` when a required value is missing or a
@@ -50,18 +51,21 @@ Constants: `CRYPTO_CIPHER = 'aes-256-gcm'`, `CRYPTO_IV_LEN = 12`, `CRYPTO_TAG_LE
 
 ## includes/auth.php
 
-Pages that answer `fetch()` define `AUTH_API` before calling `require_login()`; the session
-timer is then not refreshed and errors are returned as JSON.
+API scripts define `AUTH_API` before calling `require_login()`: errors are then returned as
+JSON. A GET to such a script is **passive** (background polling): it keeps the user online
+(`last_seen`) but neither refreshes the session timer nor `last_activity`. A POST is a real
+action.
 
 | Function | Description |
 |---|---|
 | `start_secure_session(): void` | Starts the session with secure cookie settings; applies the inactivity timeout and the fingerprint check. Safe to call repeatedly. |
 | `login_user(int $userId): void` | Call after a successful `password_verify()`: new session id, fresh session data, new CSRF token, updates `last_activity`. |
-| `logout_user(): void` | Clears the session and deletes its cookie. |
-| `require_login(): array` | Returns the current user (`id, uin, login, first_name, last_name, gender, photo_path, role, last_activity, created_at`; no encrypted fields). Otherwise redirects to `login.php` (401 JSON for `AUTH_API`). |
+| `logout_user(): void` | Marks the user offline, clears the session and deletes its cookie. |
+| `require_login(): array` | Returns the current user (`id, uin, login, first_name, last_name, gender, photo_path, role, status, status_text, city, about, last_activity, last_seen, created_at`; no encrypted fields). Otherwise redirects to `login.php` (401 JSON for `AUTH_API`). |
 | `require_admin(): array` | Like `require_login()`, but answers 403 to non-admins. |
 | `csrf_token(): string` | The session's CSRF token (64 hex characters). |
 | `csrf_check(): void` | Compares the `csrf` POST field or the `X-CSRF-Token` header with the session token; stops with 403 when they differ. |
+| `auth_is_passive(): bool` | True for a GET to an API script (polling). |
 | `auth_config`, `auth_url`, `auth_is_https`, `auth_fingerprint`, `auth_reset_session`, `auth_stop` | *Internal.* Config access, URL building from subfolders, HTTPS detection, browser fingerprint, session wipe, ending a request with redirect/JSON/403. |
 
 ## includes/helpers.php
@@ -71,8 +75,10 @@ Constants: `APP_NAME = 'ICQ1.0'`, `ERR_GENERIC` (the generic error text).
 | Function | Description |
 |---|---|
 | `e(string $s): string` | `htmlspecialchars($s, ENT_QUOTES, 'UTF-8')`. Use for every printed value. |
-| `page_start(string $title, string $base = '', ?array $user = null): void` | Sends security headers and opens the window. `$base` is `'../'` for pages in `admin/`; `$user` shows the UIN in the title bar. |
-| `page_end(): void` | Closes the window and the document. |
+| `page_start(string $title, string $base = '', ?array $user = null): void` | Sends security headers and opens the document. Without `$user`: the centered card of guest pages. With `$user`: `mail_nav()` follows and prints the top bar. `$base` is `'../'` for pages in `admin/`. |
+| `page_end(): void` | Closes whatever `page_start()` / `mail_nav()` opened. |
+| `uin_fmt(int $uin): string` | `331376673` → `"331 376 673"`. |
+| `brand_mark(int $size = 26): string` | The logo as inline SVG. |
 | `avatar_img(string $photo, string $base = '', int $size = 32): string` | Small `<img>` of a profile photo for lists. |
 | `csrf_field(): void` | Prints the hidden CSRF input. Needs `auth.php`. |
 | `field_error(array $errors, string $key): void` | Prints the error of one form field, if any. |
@@ -82,10 +88,10 @@ Constants: `APP_NAME = 'ICQ1.0'`, `ERR_GENERIC` (the generic error text).
 | Function | Description |
 |---|---|
 | `password_error(string $pw): ?string` | Error text, or `null` when the password is 8–128 characters. |
-| `validate_user_input(array $in, bool $isNew): array` | Returns `[$clean, $errors]`. Normalizes and checks names, e-mail (lowercased), phone (spaces and hyphens removed), gender; with `$isNew` also login and password. |
+| `validate_user_input(array $in, bool $isNew): array` | Returns `[$clean, $errors]`. Normalizes and checks names, e-mail (lowercased), phone (spaces and hyphens removed), gender, optional city and "about me"; with `$isNew` also login and password. |
 | `find_conflicts(?string $login, string $email, int $exceptId = 0): array` | Errors for a login or e-mail already used by another user. `null` login skips that check; `$exceptId` excludes the user being edited. |
 | `user_create(array $c, string $photoName): int` | Inserts a user with role `user` and a random UIN (retried on collision). Returns the id. |
-| `user_update(int $id, array $c, ?string $photoName = null, ?string $newPassword = null): void` | Updates personal data; `null` keeps the current photo or password. |
+| `user_update(int $id, array $c, ?string $photoName = null, ?string $newPassword = null): void` | Updates personal data including city and "about me"; `null` keeps the current photo or password. |
 | `user_get_full(int $id): ?array` | One user with decrypted `email` and `phone`, without the password hash. |
 | `user_check_password(int $id, string $password): bool` | Verifies a password against the stored hash. |
 | `users_list(): array` | All users for the admin list (no encrypted fields). |
@@ -117,11 +123,68 @@ Constants: `MSG_SUBJECT_MAX = 200`, `MSG_BODY_MAX = 10000`.
 | `messages_sent(int $userId): array` | Newest 200 sent messages with decrypted `subject` and the recipient's data. |
 | `message_get(int $messageId, int $userId): ?array` | One message for its sender or recipient only, with decrypted subject and body; marks it read for the recipient. `null` otherwise. |
 | `messages_unread_count(int $userId): int` | Unread received messages. |
-| `mail_nav(int $userId, string $active, string $base = ''): void` | The menu with the unread badge, the logout button and the notification script. Shows **Users** to admins only. |
+| `mail_nav(int $userId, string $active, string $base = '', string $mainClass = 'page'): void` | The top bar (Messenger and Mail badges, my photo with my status, logout), opens `<main class="$mainClass">`, adds the Inbox/Sent/Write tabs on mail pages and the badge poller on every page except the messenger. Shows **Users** to admins only. |
 | `msg_time(?string $dt): string` | Formats a database time in the display time zone (`d.m.Y H:i`). Used by pages. |
-| `is_online(?string $lastActivity): bool` | Active within the online window. Used by pages. |
 | `msg_utc(?string $dt): ?DateTimeImmutable` | Parses a database time as UTC. |
 | `msg_decrypt_safe`, `msg_list_row` | *Internal.* Decrypt for display without breaking a list; turn a list row's encrypted subject into text. |
+
+## includes/presence.php
+
+Constants: `STATUSES` (key → label: `online`, `away`, `na`, `dnd`, `invisible`), `STATUS_TEXT_MAX = 100`.
+
+| Function | Description |
+|---|---|
+| `presence_of(array $u, bool $forSelf = false): string` | What a user looks like: `online`, `away`, `na`, `dnd`, `invisible` (only for themselves) or `offline`. Needs `status`, `last_seen`, `last_activity`. |
+| `presence_label(string $presence): string` | Human label, `Offline` for unknown values. |
+| `presence_last_seen(array $u): ?string` | "Last seen" for others; `null` while the user is invisible. |
+| `status_set(int $userId, string $status, string $text): void` | Saves status and status text (one line, up to 100 characters). |
+| `presence_config`, `presence_age` | *Internal.* |
+
+## includes/contacts.php
+
+Constants: `CONTACT_GROUP_DEFAULT = 'General'`, `CONTACT_GROUP_MAX = 40`.
+
+| Function | Description |
+|---|---|
+| `user_by_uin(int $uin): ?array` | User row by public UIN (no e-mail, phone, role). |
+| `contact_relation(int $me, int $other): string` | `self`, `contact`, `outgoing`, `incoming` or `none`. |
+| `contacts_are_friends(int $a, int $b): bool` | Both sides accepted. Checked by every chat function. |
+| `contact_request(int $me, int $other): string` | Asks for authorization, or accepts at once if the other side already asked. Returns the new relation. |
+| `contact_accept(int $me, int $requester): bool` | Accepts a request in one transaction (adds the mirror row). |
+| `contact_decline(int $me, int $requester): void` | Deletes the request. |
+| `contact_remove(int $me, int $other): void` | Removes the contact on both sides, or cancels my request. |
+| `contact_move(int $me, int $other, string $group): void` | Moves a contact into a group of my list. |
+| `contacts_of(int $me): array` | Accepted contacts with `uin, name, photo, city, group, status, status_text, unread`. |
+| `contact_requests(int $me, string $direction): array` | Pending requests, `incoming` or `outgoing`. |
+| `users_search(int $me, string $q): array` | Up to 20 users by exact UIN or by login/name (LIKE wildcards escaped), each with `relation`. Status is not included. |
+| `contact_public(array $row): array` | *Internal.* Public fields of a user for the browser. |
+
+## includes/chat.php
+
+Constants: `CHAT_BODY_MAX = 2000`, `CHAT_PAGE = 50`, `TYPING_TTL = 6`.
+
+| Function | Description |
+|---|---|
+| `chat_validate(string $body): array` | `[$clean, $error]`. |
+| `chat_send(int $me, int $peer, string $body): array` | Encrypts and stores a message to an accepted contact; ends my typing signal. Returns the message. |
+| `chat_fetch(int $me, int $peer, int $afterId = 0, int $beforeId = 0): array` | Messages oldest first: newer than `$afterId`, the page before `$beforeId`, or the latest page. Each: `id, mine, body, time` (ISO UTC), `state` (`sent`/`delivered`/`read`, own messages only). |
+| `chat_mark_delivered(int $me): void` | Everything sent to me is delivered. Called on every poll. |
+| `chat_mark_read(int $me, int $peer): void` | Messages from `$peer` are read. Called only while that chat is visible. |
+| `chat_receipts(int $me, int $peer): array` | `['delivered' => id, 'read' => id]`: highest such id of my messages. |
+| `chat_unread_total(int $me): int` | Unread chat messages from everyone. |
+| `typing_set(int $me, int $peer): void` | "I am typing to $peer" (contacts only). |
+| `typing_is(int $peer, int $me): bool` | Is `$peer` typing to me within the last 6 s? |
+| `chat_iso`, `chat_row` | *Internal.* |
+
+## includes/api.php
+
+| Function | Description |
+|---|---|
+| `api_json(array $data, int $status = 200): never` | JSON response with `no-store`. |
+| `api_error(string $message, int $status = 400): never` | `{"error": message}`. |
+| `api_run(callable $handler): never` | Runs an endpoint: `InvalidArgumentException` → 400 with its message, anything else → logged, 500 with a generic message. |
+| `api_post_body(): array` | Requires POST (405 otherwise) and a valid `X-CSRF-Token` (403), returns the JSON body (400 if invalid). |
+| `api_int(array $in, string $key): int`, `api_str(array $in, string $key): string` | Safe input readers. |
 
 ## includes/throttle.php
 
@@ -156,7 +219,8 @@ Constants: `RESET_MAX_PER_IP = 5` (per 15 minutes), `RESET_MAX_PER_USER = 3` (pe
 
 | Page | Access | Methods and parameters |
 |---|---|---|
-| `index.php` | anyone | GET; redirects to `inbox.php` or `login.php` |
+| `index.php` | anyone | GET; redirects to `chat.php` or `login.php` |
+| `chat.php` | user | GET; the messenger (`#UIN` in the address opens that chat) |
 | `register.php` | guests | GET form; POST registration |
 | `login.php` | guests | GET (`?timeout=1`, `?reset=1` show a notice); POST login |
 | `logout.php` | logged in | POST with CSRF; GET redirects to the profile |
@@ -167,26 +231,40 @@ Constants: `RESET_MAX_PER_IP = 5` (per 15 minutes), `RESET_MAX_PER_USER = 3` (pe
 | `sent.php` | user | GET (`?sent=1` confirmation) |
 | `compose.php` | user | GET (`?to=UIN` or `?re=messageId` prefill); POST send |
 | `message.php` | user (sender or recipient) | GET `?id=` |
-| `contacts.php` | user | GET |
 | `admin/users.php` | admin | GET (`?saved=1`); POST `id`, `role` |
 | `admin/edit.php` | admin | GET `?id=`; POST user data, role, optional new password |
-| `api/unread.php` | user | GET, JSON |
+| `api/*.php` | user | JSON, see below |
 | `install_admin.php` | command line only | interactive; answers 404 over HTTP |
 
-"Guests" pages send a logged-in user to the profile.
+"Guests" pages send a logged-in user to the messenger.
 
-## API: `GET api/unread.php`
+## API
 
-Used by `assets/notify.js` every 20 seconds. Same-origin, session cookie. Does not extend the
-session.
+All endpoints are same-origin, use the session cookie and answer JSON. **GET** endpoints only
+read and do not extend the session. **POST** endpoints are actions: they need the header
+`X-CSRF-Token` (the token is in `data-csrf` on the messenger page) and a JSON body. Users are
+always addressed by **UIN**; internal ids never leave the server.
+
+| Endpoint | Method | Input | Answer |
+|---|---|---|---|
+| `api/poll.php` | GET | `with` (UIN of the open chat), `after` (newest message id), `focus` (`1` = chat visible) | `me` (status, presence, status_text), `contacts`, `incoming`, `outgoing`, `mail_unread`, `chat` (`messages`, `receipts`, `typing`) or `null` |
+| `api/chat.php` | GET | `with`, optional `before` | `messages`, `receipts`, `page`; 404 if not a contact |
+| `api/chat.php` | POST | `{"to": UIN, "body": "..."}` | `message` |
+| `api/typing.php` | POST | `{"to": UIN}` | `ok` |
+| `api/status.php` | POST | `{"status": "dnd", "text": "Exam"}` | `ok` |
+| `api/contacts.php` | POST | `{"action": "request\|accept\|decline\|remove\|group", "uin": UIN, "group": "..."}` | `relation` |
+| `api/search.php` | GET | `q` (2–50 characters) | `results` with `relation` |
+| `api/user.php` | GET | `uin` | `user`: name, UIN, photo, city, about, relation; status, status text and last seen for contacts only |
+| `api/unread.php` | GET | – | `unread` (letters), `chat` (messages); used by `assets/notify.js` every 20 s |
 
 | Status | Body | When |
 |---|---|---|
-| 200 | `{"unread": 3}` | logged in |
-| 401 | `{"error": "unauthorized"}` | not logged in or the session expired; the script redirects to `login.php?timeout=1` |
-| 500 | `{"error": "internal"}` | server problem |
-
-Response headers: `Content-Type: application/json; charset=utf-8`, `Cache-Control: no-store`.
+| 400 | `{"error": "..."}` | invalid input; the message is safe to show |
+| 401 | `{"error": "unauthorized"}` | not logged in or the session expired; the client goes to `login.php?timeout=1` |
+| 403 | `{"error": "forbidden"}` | missing or wrong CSRF token |
+| 404 | `{"error": "..."}` | user or conversation not found (also for "not your contact") |
+| 405 | `{"error": "Method not allowed."}` | GET to an action |
+| 500 | `{"error": "Something went wrong..."}` | server problem, details in the log |
 
 ## Command-line scripts
 
@@ -198,6 +276,7 @@ Response headers: `Content-Type: application/json; charset=utf-8`, `Cache-Contro
 
 | File | Purpose |
 |---|---|
-| `schema.sql` | Database, all four tables and the locked `admin` row. Used for a new installation. |
+| `schema.sql` | Database, all six tables and the locked `admin` row. Used for a new installation. |
 | `migrate_stage7.sql` | Adds `login_attempts` to a database created earlier. |
 | `migrate_password_reset.sql` | Adds `password_resets` to a database created earlier. |
+| `migrate_messenger.sql` | Adds the status and profile columns, `contacts` and `chat_messages`. Safe to run again. |

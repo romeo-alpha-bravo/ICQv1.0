@@ -16,6 +16,7 @@ $saved  = isset($_GET['saved']);
 $old    = [
     'first_name' => $full['first_name'], 'last_name' => $full['last_name'],
     'email' => $full['email'], 'phone' => $full['phone'], 'gender' => $full['gender'],
+    'city' => (string)$full['city'], 'about' => (string)$full['about'],
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -92,13 +93,15 @@ mail_nav($id, 'profile.php');
 <section>
   <div class="photo"><img src="uploads/<?= e($full['photo_path']) ?>" alt="Profile photo"></div>
   <dl>
-    <dt>UIN</dt>       <dd><?= e((string)$full['uin']) ?></dd>
+    <dt>UIN</dt>       <dd class="uin"><?= e(uin_fmt((int)$full['uin'])) ?></dd>
     <dt>Login</dt>     <dd><?= e($full['login']) ?></dd>
     <dt>Role</dt>      <dd><?= e($full['role']) ?></dd>
     <dt>Name</dt>      <dd><?= e($full['first_name'] . ' ' . $full['last_name']) ?></dd>
     <dt>Email</dt>     <dd><?= e($full['email']) ?></dd>
     <dt>Phone</dt>     <dd><?= e($full['phone']) ?></dd>
     <dt>Gender</dt>    <dd><?= e($genders[$full['gender']] ?? '') ?></dd>
+    <?php if ($full['city']): ?><dt>City</dt><dd><?= e($full['city']) ?></dd><?php endif; ?>
+    <?php if ($full['about']): ?><dt>About me</dt><dd class="card-about"><?= e($full['about']) ?></dd><?php endif; ?>
     <dt>Registered</dt><dd><?= e(msg_time($full['created_at'])) ?></dd>
   </dl>
 </section>
@@ -138,6 +141,17 @@ mail_nav($id, 'profile.php');
         <?php endforeach; ?>
       </select>
       <?php field_error($errors, 'gender'); ?>
+    </p>
+    <p>
+      <label for="city">City (optional)</label>
+      <input type="text" id="city" name="city" maxlength="100" autocomplete="address-level2"
+             pattern="\p{L}[\p{L} .'\-]*" value="<?= $val('city') ?>">
+      <?php field_error($errors, 'city'); ?>
+    </p>
+    <p>
+      <label for="about">About me (optional, shown to other users)</label>
+      <textarea id="about" name="about" maxlength="500" rows="3"><?= $val('about') ?></textarea>
+      <?php field_error($errors, 'about'); ?>
     </p>
     <p>
       <label for="photo">New profile photo (optional, at least 800 px wide)</label>

@@ -1,4 +1,4 @@
--- UIN-Mail: database schema (stage 0)
+-- ICQ1.0: database schema
 -- Usage: mysql -u <admin_user> -p < schema.sql
 
 CREATE DATABASE IF NOT EXISTS uin_mail
@@ -22,7 +22,15 @@ CREATE TABLE IF NOT EXISTS users (
   gender        ENUM('m','f','other') NOT NULL,
   photo_path    VARCHAR(255)   NOT NULL,
   role          ENUM('user','admin')  NOT NULL DEFAULT 'user',
-  last_activity DATETIME       NULL,
+  -- messenger profile and presence (see includes/presence.php)
+  status        ENUM('online','away','na','dnd','invisible') NOT NULL DEFAULT 'online',
+  status_text   VARCHAR(100)   NULL,
+  city          VARCHAR(100)   NULL,
+  about         VARCHAR(500)   NULL,
+  last_activity DATETIME       NULL,   -- last real action (page view, sent message)
+  last_seen     DATETIME       NULL,   -- last request of any kind, also background polling
+  typing_to     INT            NULL,   -- "is typing..." indicator: to whom and when
+  typing_at     DATETIME       NULL,
   created_at    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -66,6 +74,37 @@ CREATE TABLE IF NOT EXISTS password_resets (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_ip_time   (ip, created_at),
   INDEX idx_user_time (user_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Contact list with authorization. Row (A, B, 'pending') = A asked B for authorization.
+-- When B accepts, the row becomes 'accepted' and the mirror row (B, A) is added.
+-- Only accepted contacts can chat and see each other's status.
+CREATE TABLE IF NOT EXISTS contacts (
+  owner_id   INT          NOT NULL,
+  contact_id INT          NOT NULL,
+  state      ENUM('pending','accepted') NOT NULL DEFAULT 'pending',
+  group_name VARCHAR(40)  NOT NULL DEFAULT 'General',
+  created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (owner_id, contact_id),
+  INDEX idx_incoming (contact_id, state),
+  FOREIGN KEY (owner_id)   REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (contact_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Instant messages (chat). The body is stored encrypted, like mail.
+-- delivered_at: the recipient's app received it; read_at: the recipient opened the chat.
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  sender_id    INT      NOT NULL,
+  recipient_id INT      NOT NULL,
+  body_enc     BLOB     NOT NULL,
+  sent_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  delivered_at DATETIME NULL,
+  read_at      DATETIME NULL,
+  FOREIGN KEY (sender_id)    REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_pair (sender_id, recipient_id, id),
+  INDEX idx_unread (recipient_id, read_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Default admin (LOCKED placeholder).

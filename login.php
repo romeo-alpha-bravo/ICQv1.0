@@ -7,7 +7,7 @@ require_once __DIR__ . '/includes/throttle.php';
 
 start_secure_session();
 if (!empty($_SESSION['uid'])) {
-    header('Location: profile.php');
+    header('Location: chat.php');
     exit;
 }
 
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $up->execute([password_hash($pw, PASSWORD_ARGON2ID), $row['id']]);
             }
             login_user((int)$row['id']);
-            header('Location: profile.php');
+            header('Location: chat.php');
             exit;
         }
         login_throttle_fail($login);

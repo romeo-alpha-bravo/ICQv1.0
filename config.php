@@ -83,7 +83,8 @@ return [
     ],
     'reset_ttl'       => 1800,      // password reset link lifetime, seconds (30 min)
     'session_timeout' => 1200,      // seconds of inactivity (20 min)
-    'online_window'   => 300,       // seconds for "online" status (5 min)
+    'online_window'   => 90,        // seconds without any request (also polling) -> offline
+    'away_after'      => 600,       // seconds without a real action -> "Away" (10 min)
     'upload_dir'      => $get('UIN_UPLOAD_DIR', __DIR__ . '/uploads'),
     'photo_width'     => 800,
     'photo_quality'   => 90,

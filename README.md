@@ -1,8 +1,9 @@
 # ICQ1.0
 
-A retro web messenger with e-mail-like internal mail, styled after late-1990s desktop
-messengers. Every user gets a numeric **UIN**, can write messages to other users, sees who
-is online and gets notified about new mail. An administrator manages all accounts.
+A web messenger in the spirit of the classic instant messengers, with an e-mail-like
+internal mail next to it. Every user gets a numeric **UIN**, adds people to a contact list
+with authorization, chats with them in real time, sets a status and gets notified about new
+messages. An administrator manages all accounts.
 
 University assignment for *BVWA2 – Vývoj webových aplikací II*. Plain PHP, no framework.
 
@@ -13,13 +14,21 @@ University assignment for *BVWA2 – Vývoj webových aplikací II*. Plain PHP, 
 - Profile photos converted to JPEG (quality 90, 800 px wide); PNG, GIF, BMP, TIFF and JPEG accepted
 - Personal data protected under GDPR: passwords hashed (Argon2id), e-mail and phone encrypted (AES-256-GCM)
 - Session login with automatic logout after 20 minutes of inactivity and session hijacking protection
-- Internal mail: Inbox, Sent (with read status), Write, Reply; messages stored encrypted
-- New-mail notification: badge, count in the browser tab, short sound
-- Contact list split into Online and Offline
+- **Messenger**: one-to-one chats with history; new messages arrive within 2–3 seconds
+  without reloading; messages stored encrypted
+- **Statuses**: Online, Away, Not available, Do not disturb, Invisible, plus a status text;
+  Away is set automatically after 10 minutes without activity
+- **"is typing…"** indicator and **ticks**: ✓ sent, ✓✓ delivered, blue ✓✓ read
+- **Contact list with groups and authorization**: add people by UIN; they must accept before
+  you can chat or see their status; unread counter per contact
+- **Search** for people by UIN, login or name
+- **Notifications**: sound, desktop notification, blinking tab title (silent in Do not disturb)
+- **Smileys** panel and an **info card** for every user (city, about me, last seen)
+- Internal mail: Inbox, Sent (with read status), Write, Reply; letters stored encrypted
 - Admin panel: view and edit any user, grant or revoke the admin role, reset passwords
 - Password recovery by e-mail ("Forgot your password?")
 - Brute-force protection for login and password recovery
-- Responsive retro interface (desktop and mobile)
+- Responsive interface (desktop and mobile)
 
 ## Tech stack
 
@@ -52,7 +61,8 @@ make admin    # activates the default admin account
 
 ```
 ICQ1.0/
-├── index.php              entry point: inbox when logged in, otherwise login
+├── index.php              entry point: messenger when logged in, otherwise login
+├── chat.php               the messenger (contact list + conversation)
 ├── register.php           registration form
 ├── login.php              login form (with brute-force protection)
 ├── logout.php             logout (POST + CSRF only)
@@ -63,12 +73,18 @@ ICQ1.0/
 ├── sent.php               sent messages with read status
 ├── compose.php            write a message or a reply
 ├── message.php            read one message
-├── contacts.php           contact list, online / offline
 ├── admin/
 │   ├── users.php          all users, role switch (admin only)
 │   └── edit.php           edit any user (admin only)
-├── api/
-│   └── unread.php         JSON unread counter for notifications
+├── api/                   JSON endpoints used by the browser
+│   ├── poll.php           everything the messenger needs, every few seconds
+│   ├── chat.php           conversation history (GET), send a message (POST)
+│   ├── typing.php         "is typing…" signal (POST)
+│   ├── status.php         change my status and status text (POST)
+│   ├── contacts.php       request / accept / decline / remove / move to group (POST)
+│   ├── search.php         find people
+│   ├── user.php           info card of a user
+│   └── unread.php         unread counters for the menu badges
 ├── includes/              shared modules (no direct HTTP access needed)
 │   ├── db.php             PDO connection
 │   ├── crypto.php         AES-256-GCM encryption, HMAC of e-mail
@@ -76,14 +92,21 @@ ICQ1.0/
 │   ├── image.php          photo validation and conversion
 │   ├── users.php          user validation and data access
 │   ├── messages.php       mail data access, navigation bar
+│   ├── chat.php           instant messages, ticks, "is typing"
+│   ├── contacts.php       contact list with authorization, groups, search
+│   ├── presence.php       statuses: what others see, auto Away, Invisible
+│   ├── api.php            JSON helpers for api/*
 │   ├── throttle.php       failed-login counter
 │   ├── password_reset.php reset tokens
 │   ├── mailer.php         e-mail delivery (log / SMTP / mail())
 │   └── helpers.php        HTML escaping, page frame, form helpers
 ├── assets/
-│   ├── style.css          retro interface
-│   ├── notify.js          polls for new mail
-│   └── notify.wav         notification sound
+│   ├── style.css          the whole interface
+│   ├── messenger.js       messenger client (polling, chat, dialogs, notifications)
+│   ├── notify.js          menu badges on the other pages
+│   ├── message.wav        new chat message sound
+│   ├── notify.wav         new letter sound
+│   └── icon.svg           browser tab icon
 ├── uploads/               profile photos (random file names)
 │   ├── .htaccess          no script execution in this folder (Apache)
 │   └── default.jpg        placeholder photo of the default admin
@@ -91,6 +114,7 @@ ICQ1.0/
 ├── schema.sql             database schema and the default admin row
 ├── migrate_stage7.sql     adds login_attempts to an older database
 ├── migrate_password_reset.sql  adds password_resets to an older database
+├── migrate_messenger.sql  adds statuses, contacts and chat to an older database
 ├── install_admin.php      one-time CLI script that activates the admin account
 ├── docker-compose.yml     the whole stack: web, php, db, mailpit
 ├── docker/                nginx config, PHP image, DB init script
@@ -125,8 +149,8 @@ ICQ1.0/
 | Session login, logout after 20 min inactivity, hijacking protection | `includes/auth.php` |
 | After login: own data, own role, internal mail | `profile.php`, `inbox.php`, `sent.php`, `compose.php` |
 | Sent messages kept in "Sent" | `sent.php` |
-| Notification about new messages | `api/unread.php`, `assets/notify.js` |
-| Messages stored encrypted | `message_send()` in `includes/messages.php` |
+| Notification about new messages | `api/poll.php` + `assets/messenger.js`, `api/unread.php` + `assets/notify.js` |
+| Messages stored encrypted | `message_send()` in `includes/messages.php`, `chat_send()` in `includes/chat.php` |
 
 ## Known limitations
 
@@ -137,3 +161,5 @@ explains each one.
 - Changing a password does not end other open sessions (they still expire after 20 minutes).
 - Profile photos are reachable by anyone who knows their random URL.
 - Local development runs over HTTP, so the `Secure` cookie flag is off.
+- "Real time" is short polling (every 3 s), not WebSockets: simple and reliable on php-fpm,
+  but it costs one small request per open tab every few seconds.

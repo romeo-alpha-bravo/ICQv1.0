@@ -51,6 +51,17 @@ function validate_user_input(array $in, bool $isNew): array
         $errors['gender'] = 'Please choose a gender.';
     }
 
+    // Optional messenger profile: city and "about me" (shown on the info card)
+    $clean['city'] = $text('city');
+    if ($clean['city'] !== '' && !preg_match('/^\p{L}[\p{L} .\'\-]{0,99}\z/u', $clean['city'])) {
+        $errors['city'] = 'City: letters, spaces, dot, apostrophe and hyphen only (max 100).';
+    }
+    $clean['about'] = str_replace(["\r\n", "\r"], "\n", $text('about'));
+    if (mb_strlen($clean['about'], 'UTF-8') > 500 || !mb_check_encoding($clean['about'], 'UTF-8')
+        || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $clean['about'])) {
+        $errors['about'] = 'About me: up to 500 characters.';
+    }
+
     if ($isNew) {
         $clean['login'] = $text('login');
         if (!preg_match('/^[A-Za-z0-9_]{3,30}\z/', $clean['login'])) {
@@ -139,7 +150,7 @@ function user_update(int $id, array $c, ?string $photoName = null, ?string $newP
 
     $st = db()->prepare(
         'UPDATE users SET first_name = ?, last_name = ?, email_enc = ?, email_hash = ?,
-                          phone_enc = ?, gender = ?,
+                          phone_enc = ?, gender = ?, city = ?, about = ?,
                           photo_path = COALESCE(?, photo_path),
                           password_hash = COALESCE(?, password_hash)
           WHERE id = ?'
@@ -150,9 +161,11 @@ function user_update(int $id, array $c, ?string $photoName = null, ?string $newP
     $st->bindValue(4, hmac_email($c['email']));
     $st->bindValue(5, encrypt($c['phone']), PDO::PARAM_LOB);
     $st->bindValue(6, $c['gender']);
-    $st->bindValue(7, $photoName);
-    $st->bindValue(8, $hash);
-    $st->bindValue(9, $id, PDO::PARAM_INT);
+    $st->bindValue(7, ($c['city'] ?? '') === '' ? null : $c['city']);
+    $st->bindValue(8, ($c['about'] ?? '') === '' ? null : $c['about']);
+    $st->bindValue(9, $photoName);
+    $st->bindValue(10, $hash);
+    $st->bindValue(11, $id, PDO::PARAM_INT);
 
     try {
         $st->execute();
@@ -170,7 +183,7 @@ function user_get_full(int $id): ?array
 {
     $st = db()->prepare(
         'SELECT id, uin, login, first_name, last_name, email_enc, phone_enc, gender,
-                photo_path, role, last_activity, created_at
+                photo_path, role, city, about, last_activity, created_at
            FROM users WHERE id = ?'
     );
     $st->execute([$id]);
@@ -202,7 +215,7 @@ function users_list(): array
 {
     return db()->query(
         'SELECT id, uin, login, first_name, last_name, gender, photo_path,
-                role, last_activity, created_at
+                role, status, last_activity, last_seen, created_at
            FROM users ORDER BY id'
     )->fetchAll();
 }

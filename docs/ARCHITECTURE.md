@@ -1,25 +1,30 @@
 # Architecture
 
-ICQ1.0 is a classic server-rendered PHP application without a framework. Each page is one
-PHP file that renders HTML; shared logic lives in small modules under `includes/`.
+ICQ1.0 is a server-rendered PHP application without a framework. Each page is one PHP file
+that renders HTML; shared logic lives in small modules under `includes/`. The messenger
+(`chat.php`) is the one page that renders only its frame and then works through a small JSON
+API in `api/`, driven by `assets/messenger.js`.
 
 ## Overview
 
 ```
  Browser
-   │  HTML forms (POST + CSRF token), links (GET)
-   │  fetch() every 20 s ──────────────┐
-   ▼                                   ▼
- Page scripts                       api/unread.php  (JSON)
- register, login, inbox, compose,
- profile, admin/*, ...
-   │  require_once
+   │  HTML forms (POST + CSRF)        messenger.js: fetch() every 3 s,
+   │  links (GET)                     POST actions with X-CSRF-Token
+   ▼                                        ▼
+ Page scripts                         api/poll, chat, typing, status,
+ register, login, chat, inbox,        contacts, search, user, unread (JSON)
+ compose, profile, admin/*, ...             │
+   │  require_once ◄────────────────────────┘
    ▼
  includes/
-   auth.php ─── sessions, roles, CSRF
-   users.php ── validation, user data     ─┐
-   messages.php mail data, navigation      ├─► crypto.php ─► AES-256-GCM / HMAC
-   password_reset.php, throttle.php       ─┘
+   auth.php ─── sessions, roles, CSRF, passive polling vs. real actions
+   users.php ── validation, user data      ─┐
+   messages.php mail data, top bar          │
+   chat.php ─── instant messages, ticks     ├─► crypto.php ─► AES-256-GCM / HMAC
+   contacts.php authorization, groups       │
+   presence.php statuses, auto Away         │
+   password_reset.php, throttle.php        ─┘
    image.php ── photo conversion ─────────────► uploads/  (JPEG files)
    mailer.php ─ e-mail delivery
    helpers.php  escaping, page frame
@@ -47,8 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-page_start('Title', '', $user);                   // 7. render: window frame,
-mail_nav($user['id'], 'inbox.php');               //    menu with unread badge,
+page_start('Title', '', $user);                   // 7. render: document head,
+mail_nav($user['id'], 'inbox.php');               //    top bar with badges + <main>,
 ?> ...HTML, every value through e()... <?php      //    escaped content,
 page_end();                                       //    closing tags
 ```
@@ -67,7 +72,11 @@ second time.
 | `helpers.php` | auth (for `csrf_field`) | `e()`, page frame, form helpers, `APP_NAME` |
 | `users.php` | db, crypto | user validation, uniqueness, create, update, load, roles |
 | `image.php` | config | photo validation and conversion |
-| `messages.php` | db, crypto, auth, helpers | mail queries, online status, time formatting, menu |
+| `messages.php` | db, crypto, auth, helpers, chat | mail queries, time formatting, top bar with badges |
+| `presence.php` | db, config | chosen status vs. what others see, auto Away, Invisible, status text |
+| `contacts.php` | db, presence | authorization requests, contact list with groups, search |
+| `chat.php` | db, crypto, contacts | instant messages, delivered/read ticks, "is typing" |
+| `api.php` | auth | JSON responses, POST + CSRF check, error mapping for `api/*` |
 | `throttle.php` | db | failed-login counter |
 | `mailer.php` | config | e-mail delivery (log, SMTP or `mail()`) |
 | `password_reset.php` | db, crypto, helpers, mailer, throttle | reset tokens |
@@ -81,8 +90,9 @@ All tables use InnoDB and `utf8mb4`. Every `DATETIME` is stored in **UTC**: `db.
 `time_zone = '+00:00'` on each connection, and `msg_time()` converts to the display time zone.
 
 ```
-users 1 ──── * messages (as sender)
-users 1 ──── * messages (as recipient)
+users 1 ──── * messages        (letters, as sender / as recipient)
+users 1 ──── * chat_messages   (instant messages, as sender / as recipient)
+users 1 ──── * contacts        (as owner of the list / as the contact)
 users 1 ──── * password_resets
 login_attempts   (no foreign key; keyed by login name and IP)
 ```
@@ -102,7 +112,12 @@ login_attempts   (no foreign key; keyed by login name and IP)
 | `gender` | ENUM `m`, `f`, `other` | |
 | `photo_path` | VARCHAR(255) | file name inside `uploads/` |
 | `role` | ENUM `user`, `admin` | read from the DB on every request |
-| `last_activity` | DATETIME NULL | updated on each page view, drives "online" |
+| `status` | ENUM `online`, `away`, `na`, `dnd`, `invisible` | the status the user picked |
+| `status_text` | VARCHAR(100) NULL | "At a lecture" |
+| `city`, `about` | VARCHAR(100) / VARCHAR(500) NULL | info card, optional |
+| `last_activity` | DATETIME NULL | last real action (page view, POST to the API); drives auto Away |
+| `last_seen` | DATETIME NULL | any request, background polling included (written at most every 15 s); drives online/offline |
+| `typing_to`, `typing_at` | INT / DATETIME NULL | "is typing" signal: to whom, and when (valid 6 s) |
 | `created_at` | DATETIME | |
 
 ### messages
@@ -136,6 +151,28 @@ the application itself.
 | `used_at` | set when the token is used or replaced by a newer one |
 
 Rows for unknown e-mails exist only so that the per-IP limit counts every request.
+
+### contacts
+
+| Column | Notes |
+|---|---|
+| `owner_id`, `contact_id` | PK together; FK → users, `ON DELETE CASCADE` |
+| `state` | `pending`: owner asked contact for authorization; `accepted` |
+| `group_name` | group in the owner's list, default `General` |
+
+An accepted contact is always **two** rows, (A, B) and (B, A), so each side has its own group.
+`contacts_are_friends()` requires both.
+
+### chat_messages
+
+| Column | Notes |
+|---|---|
+| `sender_id`, `recipient_id` | FK → users |
+| `body_enc` | encrypted body (up to 2,000 characters) |
+| `sent_at`, `delivered_at`, `read_at` | the three tick states |
+
+Index `(sender_id, recipient_id, id)` serves a conversation in both directions;
+`(recipient_id, read_at)` serves the unread counters.
 
 ### Encrypted value format
 
@@ -180,9 +217,11 @@ arbitrary binary data.
 2. If more than 1200 s passed since `$_SESSION['last']`, or the browser fingerprint
    (`$_SESSION['fp']`) does not match, the session is wiped and the user is sent to
    `login.php?timeout=1`.
-3. Otherwise `last` is refreshed, unless the script defined `AUTH_API` (see below).
+3. Otherwise `last` is refreshed, unless the request is **passive**: a GET to an API script
+   (`AUTH_API`), i.e. background polling. POST requests to the API (sending a message,
+   changing status) are real actions and do refresh it.
 4. The user row is read from the database, so role changes and deleted accounts apply at once.
-5. `users.last_activity` is updated.
+5. A real action updates `last_activity` and `last_seen`; a passive request only `last_seen`.
 
 ### Sending and reading a message
 
@@ -193,10 +232,10 @@ arbitrary binary data.
    and marks it read when the recipient opens it. For anyone else it returns `null`, which
    the page shows as "Message not found", exactly like a missing id.
 
-### Notifications
+### Badges on the other pages
 
 ```
-notify.js ──GET every 20 s──► api/unread.php ──► {"unread": 3}
+notify.js ──GET every 20 s──► api/unread.php ──► {"unread": 3, "chat": 1}
     │                             │
     │                             └─ AUTH_API: does not refresh the session,
     │                                errors come back as JSON (401 / 500)
@@ -206,6 +245,52 @@ notify.js ──GET every 20 s──► api/unread.php ──► {"unread": 3}
 
 Because polling does not count as activity, an open but unused tab is still logged out after
 20 minutes.
+
+### Presence
+
+`presence_of()` turns three columns into what other users see:
+
+```
+no request for 90 s (last_seen)                 → offline
+status = invisible                              → offline   (the user sees "invisible")
+status = online, no real action for 10 minutes  → away      (automatic)
+otherwise                                       → the chosen status
+```
+
+An open tab polls, so it keeps `last_seen` fresh; closing it makes the user offline within
+90 seconds, logging out at once. Polling is not an action, so an idle open tab becomes Away
+after 10 minutes and is logged out after 20, exactly as the assignment requires.
+
+### Authorization and contacts
+
+```
+A: request ──► (A,B pending) ──► B: accept ──► (A,B accepted) + (B,A accepted)
+                              └► B: decline ──► row deleted
+```
+
+If B had already asked A, A's request accepts B's at once. Removing a contact deletes both rows.
+Every chat, typing and status function checks `contacts_are_friends()` itself, so the API
+cannot be used to write to, or watch, a stranger.
+
+### Messenger polling
+
+```
+messenger.js ── GET api/poll.php?with=UIN&after=ID&focus=1 ── every 3 s (10 s in background)
+                     │
+                     ├─ chat_mark_delivered(me)        everything sent to me → ✓✓
+                     ├─ focus=1 → chat_mark_read(me, peer)               → blue ✓✓
+                     ├─ new messages of the open chat (id > after), decrypted
+                     ├─ receipts: highest delivered / read id of my messages
+                     ├─ typing_is(peer → me)
+                     └─ my status, contacts with presence + unread, requests, unread mail
+```
+
+- `after` is the newest id the browser has; a just-sent message does not move it, so a reply
+  with a smaller id that is still on its way is not skipped.
+- Ticks only need two numbers per conversation, because messages are always marked in bulk,
+  oldest included.
+- "Read" is sent only while the chat is visible and the window has focus.
+- The roster is re-drawn only when the data changed, so hover and keyboard focus survive polling.
 
 ### Password recovery
 
@@ -230,13 +315,15 @@ because its stack trace would contain the database password.
 
 ## Front end
 
-- `assets/style.css`: one stylesheet. The bevelled 3D edges are drawn with inset
-  `box-shadow`, so there are no images. The window is `max-width: 100%` and fills small
-  screens; wide tables scroll inside their own box; inputs are 16 px on phones so iOS does
-  not zoom.
-- `assets/notify.js`: the only shared script. Small page-specific scripts (password match,
-  photo size and width check) are inline at the bottom of their forms.
-- No external libraries, fonts or CDNs.
+- `assets/style.css`: one stylesheet with color tokens at the top. Status markers differ in
+  color **and** shape (dot, moon, ring, bar), so they work without color vision. On screens up
+  to 760 px the messenger shows either the contact list or the chat, with a back button; wide
+  tables scroll inside their own box; inputs are 16 px on phones so iOS does not zoom.
+- `assets/messenger.js`: the messenger client. All server data is inserted with
+  `textContent` or attributes, never as HTML.
+- `assets/notify.js`: menu badges on the other pages. Small page-specific scripts (password
+  match, photo size and width check) are inline at the bottom of their forms.
+- No external libraries, fonts or CDNs; the font is the system's rounded UI font.
 
 ## Conventions
 

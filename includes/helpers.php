@@ -13,9 +13,28 @@ function e(string $s): string
     return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 }
 
-// Sends headers and opens the page window. $base is the path prefix to the
-// project root ('' for root pages, '../' for pages in admin/).
-// $user (from require_login) shows the UIN in the title bar.
+// Internal: remembers which closing tags page_end() has to print.
+function page_state(?string $set = null): string
+{
+    static $state = 'guest';
+    if ($set !== null) {
+        $state = $set;
+    }
+    return $state;
+}
+
+// Logo mark: a speech bubble with a status dot (original drawing, inline SVG).
+function brand_mark(int $size = 26): string
+{
+    return '<svg class="brand-mark" width="' . $size . '" height="' . $size . '" viewBox="0 0 32 32" aria-hidden="true">'
+         . '<path d="M6 4h20a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H14l-6 5v-5H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z" fill="currentColor"/>'
+         . '<circle cx="23" cy="10" r="4.5" fill="#2bd17e" stroke="#141e33" stroke-width="2"/></svg>';
+}
+
+// Sends headers and opens the document. $base is the path prefix to the project root
+// ('' for root pages, '../' for pages in admin/).
+// Without $user: a centered card for login, registration and password pages.
+// With $user: the page continues with mail_nav(), which prints the top bar and <main>.
 function page_start(string $title, string $base = '', ?array $user = null): void
 {
     header('X-Frame-Options: DENY');
@@ -26,23 +45,36 @@ function page_start(string $title, string $base = '', ?array $user = null): void
     echo '<!DOCTYPE html>' . "\n"
        . '<html lang="en"><head><meta charset="utf-8">'
        . '<meta name="viewport" content="width=device-width, initial-scale=1">'
+       . '<meta name="theme-color" content="#141e33">'
        . '<title>' . e($title) . ' - ' . APP_NAME . '</title>'
+       . '<link rel="icon" href="' . e($base) . 'assets/icon.svg" type="image/svg+xml">'
        . '<link rel="stylesheet" href="' . e($base) . 'assets/style.css">'
-       . '</head><body>' . "\n"
-       . '<main class="window">' . "\n"
-       . '<div class="titlebar"><span class="flower" aria-hidden="true"></span>'
-       . '<span>' . APP_NAME . ' - ' . e($title) . '</span>';
+       . '</head>' . "\n";
 
-    if ($user !== null && isset($user['uin'])) {
-        echo '<span class="uin">UIN ' . e((string)$user['uin']) . '</span>';
+    if ($user === null) {
+        page_state('guest');
+        echo '<body class="guest"><main class="guest-main"><div class="guest-card">'
+           . '<a class="brand brand--big" href="' . e($base) . 'index.php">' . brand_mark(34)
+           . '<span>' . APP_NAME . '</span></a>' . "\n";
+    } else {
+        page_state('app');
+        echo '<body class="app">' . "\n";
     }
-
-    echo '</div>' . "\n" . '<div class="content">' . "\n";
 }
 
 function page_end(): void
 {
-    echo "\n</div></main></body></html>";
+    echo match (page_state()) {
+        'guest'    => "\n</div></main></body></html>",
+        'app-main' => "\n</main></body></html>",
+        default    => "\n</body></html>",
+    };
+}
+
+// UIN in groups of three for reading: 331376673 -> "331 376 673".
+function uin_fmt(int $uin): string
+{
+    return trim(strrev(chunk_split(strrev((string)$uin), 3, ' ')));
 }
 
 // Small avatar <img> for lists. $photo is users.photo_path (file name inside uploads/),
