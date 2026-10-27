@@ -1,23 +1,30 @@
-// Polls api/unread.php and updates the unread badge.
-// New message: badge count, number in the tab title and a short sound.
-// Expired session (HTTP 401): go to the login page.
+// Pages other than the messenger: polls api/unread.php every 20 s and updates the
+// Messenger and Mail badges in the top bar. Something new: count in the tab title and a
+// short sound. Expired session (HTTP 401): go to the login page.
 (function () {
-  var badge = document.getElementById('unread-badge');
-  if (!badge) { return; }
+  'use strict';
+  var mailBadge = document.getElementById('unread-badge');
+  var chatBadge = document.getElementById('chat-badge');
+  if (!mailBadge || !chatBadge) { return; }
 
-  var base  = badge.dataset.base || '';
-  var last  = parseInt(badge.dataset.count || '0', 10);
+  var base  = mailBadge.dataset.base || '';
+  var last  = { mail: parseInt(mailBadge.dataset.count || '0', 10), chat: parseInt(chatBadge.dataset.count || '0', 10) };
   var title = document.title;
-  var sound = new Audio(base + 'assets/notify.wav');
+  var sounds = { mail: new Audio(base + 'assets/notify.wav'), chat: new Audio(base + 'assets/message.wav') };
 
-  function show(count) {
+  function set(badge, count) {
     badge.textContent = String(count);
     badge.hidden = count === 0;
-    document.title = (count > 0 ? '(' + count + ') ' : '') + title;
-    if (count > last) {
-      sound.play().catch(function () {}); // browsers may block sound until the first click
-    }
-    last = count;
+  }
+
+  function show(mail, chat) {
+    set(mailBadge, mail);
+    set(chatBadge, chat);
+    var total = mail + chat;
+    document.title = (total > 0 ? '(' + total + ') ' : '') + title;
+    if (chat > last.chat) { sounds.chat.play().catch(function () {}); }
+    else if (mail > last.mail) { sounds.mail.play().catch(function () {}); }
+    last = { mail: mail, chat: chat };
   }
 
   function poll() {
@@ -30,11 +37,11 @@
         return res.ok ? res.json() : null;
       })
       .then(function (data) {
-        if (data && typeof data.unread === 'number') { show(data.unread); }
+        if (data && typeof data.unread === 'number') { show(data.unread, data.chat || 0); }
       })
       .catch(function () {}); // network hiccup: try again next time
   }
 
-  show(last);
-  setInterval(poll, 20000); // every 20 s
+  show(last.mail, last.chat);
+  setInterval(poll, 20000);
 })();

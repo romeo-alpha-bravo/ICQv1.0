@@ -28,7 +28,7 @@ if ($msg === null && $error === '') {
 }
 
 page_start($msg !== null ? $msg['subject'] : 'Message', '', $user);
-mail_nav($id, '');
+mail_nav($id, 'message.php');
 ?>
 <?php if ($msg === null): ?>
   <p class="error"><?= e($error) ?></p>

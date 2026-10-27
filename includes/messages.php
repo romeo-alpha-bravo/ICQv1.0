@@ -9,6 +9,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/crypto.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/chat.php';      // unread chat counter for the menu badge
 
 const MSG_SUBJECT_MAX = 200;    // characters (fits VARBINARY(1024) after encryption)
 const MSG_BODY_MAX    = 10000;  // characters
@@ -47,17 +48,6 @@ function msg_time(?string $dt): string
     }
     $time = msg_utc($dt);
     return $time === null ? '' : $time->setTimezone($tz)->format('d.m.Y H:i');
-}
-
-// Online = active within the window from config.php (5 minutes by default).
-function is_online(?string $lastActivity): bool
-{
-    static $window = null;
-    if ($window === null) {
-        $window = (int)(require __DIR__ . '/../config.php')['online_window'];
-    }
-    $time = msg_utc($lastActivity);
-    return $time !== null && (time() - $time->getTimestamp()) <= $window;
 }
 
 // ---------- Public functions ----------
@@ -214,40 +204,71 @@ function messages_unread_count(int $userId): int
     return (int)$st->fetchColumn();
 }
 
-// Navigation bar for logged-in pages, with the unread badge and the polling script.
-// $active is the current page file name; $base is '' for root pages, '../' in admin/.
-// The Users link is only shown to admins; admin pages check the role themselves.
-function mail_nav(int $userId, string $active, string $base = ''): void
+// Top bar of every logged-in page: logo, menu with unread badges, my photo with my live
+// status, logout. Opens <main class="$mainClass">; mail pages also get the Inbox/Sent/Write tabs.
+// $active is the current page ('chat.php', 'inbox.php', ..., 'admin/users.php');
+// $base is '' for root pages and '../' in admin/. The Users item is shown to admins only;
+// admin pages check the role themselves.
+function mail_nav(int $userId, string $active, string $base = '', string $mainClass = 'page'): void
 {
-    $unread = messages_unread_count($userId);
-    $items  = [
-        'inbox.php'    => 'Inbox',
-        'sent.php'     => 'Sent',
-        'compose.php'  => 'Write',
-        'contacts.php' => 'Contacts',
-        'profile.php'  => 'Profile',
-    ];
-
-    $st = db()->prepare('SELECT role FROM users WHERE id = ?');
+    $st = db()->prepare(
+        'SELECT uin, first_name, photo_path, role, status, last_seen, last_activity FROM users WHERE id = ?'
+    );
     $st->execute([$userId]);
-    if ($st->fetchColumn() === 'admin') {
-        $items['admin/users.php'] = 'Users';
+    $me = $st->fetch();
+
+    $mailUnread = messages_unread_count($userId);
+    $chatUnread = chat_unread_total($userId);
+    $presence   = presence_of($me, true);
+    $mailPages  = ['inbox.php', 'sent.php', 'compose.php', 'message.php'];
+    $section    = in_array($active, $mailPages, true) ? 'inbox.php' : $active;
+
+    // page => [label, unread count or null, badge id]
+    $items = [
+        'chat.php'    => ['Messenger', $chatUnread, 'chat-badge'],
+        'inbox.php'   => ['Mail', $mailUnread, 'unread-badge'],
+        'profile.php' => ['Profile', null, null],
+    ];
+    if ($me['role'] === 'admin') {
+        $items['admin/users.php'] = ['Users', null, null];
     }
 
-    echo '<nav class="mail-nav">';
-    foreach ($items as $page => $label) {
-        $cls = $page === $active ? ' class="active"' : '';
-        echo '<a href="' . e($base . $page) . '"' . $cls . '>' . e($label);
-        if ($page === 'inbox.php') {
-            echo ' <span id="unread-badge" class="badge" data-count="' . $unread . '"'
-               . ' data-base="' . e($base) . '"' . ($unread === 0 ? ' hidden' : '') . '>'
-               . $unread . '</span>';
+    echo '<header class="topbar">'
+       . '<a class="brand" href="' . e($base) . 'chat.php">' . brand_mark() . '<span>' . APP_NAME . '</span></a>'
+       . '<nav class="mainnav" aria-label="Main">';
+    foreach ($items as $page => [$label, $count, $badgeId]) {
+        $current = $page === $section ? ' class="is-active" aria-current="page"' : '';
+        echo '<a href="' . e($base . $page) . '"' . $current . '>' . e($label);
+        if ($badgeId !== null) {
+            echo ' <span id="' . $badgeId . '" class="badge" data-count="' . $count . '" data-base="' . e($base) . '"'
+               . ($count === 0 ? ' hidden' : '') . '>' . $count . '</span>';
         }
-        echo '</a> ';
+        echo '</a>';
     }
-    echo '<form method="post" action="' . e($base . 'logout.php') . '" class="logout">';
+    echo '</nav><div class="me">'
+       . '<a class="me-link" href="' . e($base) . 'profile.php" title="' . e(presence_label($presence)) . '">'
+       . '<span class="avatar-wrap">' . avatar_img($me['photo_path'], $base, 32)
+       . '<span class="status-dot st-' . e($presence) . '" id="me-dot"></span></span>'
+       . '<span class="me-text"><b>' . e($me['first_name']) . '</b><small>' . e(uin_fmt((int)$me['uin'])) . '</small></span></a>'
+       . '<form method="post" action="' . e($base . 'logout.php') . '" class="logout">';
     csrf_field();
-    echo '<button type="submit">Log out</button></form>';
-    echo '</nav>';
-    echo '<script src="' . e($base . 'assets/notify.js') . '" defer></script>';
+    echo '<button type="submit" class="btn btn-quiet">Log out</button></form></div></header>' . "\n";
+
+    echo '<main class="' . e($mainClass) . '">';
+    page_state('app-main');
+
+    if ($section === 'inbox.php') {
+        $tabs = ['inbox.php' => 'Inbox', 'sent.php' => 'Sent', 'compose.php' => 'Write a letter'];
+        echo '<nav class="subnav" aria-label="Mail">';
+        foreach ($tabs as $page => $label) {
+            $current = $page === $active ? ' class="is-active" aria-current="page"' : '';
+            echo '<a href="' . e($base . $page) . '"' . $current . '>' . e($label) . '</a>';
+        }
+        echo '</nav>';
+    }
+
+    // The messenger polls by itself; every other page uses the light badge poller.
+    if ($active !== 'chat.php') {
+        echo '<script src="' . e($base . 'assets/notify.js') . '" defer></script>';
+    }
 }

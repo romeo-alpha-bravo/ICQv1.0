@@ -30,6 +30,7 @@ $old = [
     'first_name' => $target['first_name'], 'last_name' => $target['last_name'],
     'email' => $target['email'], 'phone' => $target['phone'],
     'gender' => $target['gender'], 'role' => $target['role'],
+    'city' => (string)$target['city'], 'about' => (string)$target['about'],
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -163,6 +164,17 @@ mail_nav($adminId, 'admin/users.php', '../');
       <small>You cannot change your own role.</small>
     <?php endif; ?>
     <?php field_error($errors, 'role'); ?>
+  </p>
+  <p>
+    <label for="city">City (optional)</label>
+    <input type="text" id="city" name="city" maxlength="100" autocomplete="address-level2"
+           pattern="\p{L}[\p{L} .'\-]*" value="<?= $val('city') ?>">
+    <?php field_error($errors, 'city'); ?>
+  </p>
+  <p>
+    <label for="about">About me (optional, shown to other users)</label>
+    <textarea id="about" name="about" maxlength="500" rows="3"><?= $val('about') ?></textarea>
+    <?php field_error($errors, 'about'); ?>
   </p>
   <p>
     <label for="photo">New profile photo (optional, at least 800 px wide)</label>

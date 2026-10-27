@@ -62,19 +62,87 @@ accepted.
 
 ## The main window
 
-The menu at the top is the same on every page:
+After logging in you land in the **Messenger**. The bar at the top is the same on every page:
 
 | Item | What it does |
 |---|---|
-| **Inbox** | messages you received; the red number counts unread ones |
-| **Sent** | messages you sent and whether they have been read |
-| **Write** | a new message |
-| **Contacts** | everyone else, split into Online and Offline |
+| **Messenger** | chats with your contacts; the yellow number counts unread chat messages |
+| **Mail** | letters: Inbox, Sent, Write a letter; the number counts unread letters |
 | **Profile** | your data and settings |
 | **Users** | user management, shown to administrators only |
-| **Log out** | ends the session |
+| your photo | your current status; opens your profile |
+| **Log out** | ends the session and shows you as offline right away |
 
-## Messages
+## Messenger
+
+### Statuses
+
+The button at the top of the contact list shows your status. Click it to choose:
+
+| Status | Marker | Meaning |
+|---|---|---|
+| Online | green dot | you are here |
+| Away | yellow moon | you stepped away; set **automatically** after 10 minutes without activity |
+| Not available | orange dot with a white centre | you are not at the computer for a longer time |
+| Do not disturb | red bar | no sounds and no desktop notifications for you |
+| Invisible | grey ring with a dot | you can chat, but everyone sees you as offline and your "last seen" is hidden |
+| Offline | grey ring | no open ICQ1.0 tab for about 90 seconds, or logged out |
+
+Each marker has its own shape, so statuses are recognizable without colors too. Under the
+statuses you can type a **status text** ("At a lecture"); contacts see it next to your name.
+
+### Adding people (authorization)
+
+1. Click the person icon next to your status and search by **UIN**, login or name.
+2. Click **Add**. The person gets an **authorization request**.
+3. Once they **accept**, you appear in each other's list. Until then you are listed under
+   *Waiting for authorization* and can cancel the request.
+
+Only accepted contacts can chat with each other and see each other's status. If you both send
+a request, you are connected at once. Requests sent to you appear at the top of the list with
+**Accept**, **Decline** and **Info**.
+
+### The contact list
+
+- Contacts are grouped (**General** at first). Click a group name to fold it; the numbers show
+  how many are online out of the whole group.
+- Online contacts are listed first, offline ones are greyed.
+- A yellow number next to a contact counts their unread messages.
+- **Filter contacts** narrows the list by name or UIN.
+- To move a contact into another group, open their **info card** (ⓘ in the chat header) and
+  choose **Move to group**. Type an existing group or a new name.
+
+### Chatting
+
+Click a contact to open the conversation.
+
+- **Enter** sends, **Shift+Enter** starts a new line. Up to 2,000 characters.
+- The smiley button opens a panel of emoji; a message of emoji only is shown large.
+- While the other person types, you see **typing…** under their name and three dots in the chat.
+- Your messages carry ticks: **✓** sent, **✓✓** delivered (their app received it),
+  **light blue ✓✓** read (they had the chat open).
+- **Show earlier messages** at the top loads older history.
+- The envelope button writes a **letter** to the same person instead.
+
+### Info card
+
+ⓘ in the chat header (or **Info** on a request) shows photo, name, UIN, city and "about me".
+Contacts also see your status, status text and, while you are offline, when you were last
+seen. From the card you can write a message or a letter, move the contact to a group or
+**remove** them; removing works on both sides, and a new request is needed to chat again.
+
+### Notifications
+
+When a message arrives in a chat you are not looking at:
+
+- a short sound plays (browsers allow sound only after you have clicked on the page once);
+- the tab title blinks while the tab is in the background, for example `✉ Bob writes…`;
+- a **desktop notification** appears if you allowed it with **Turn on desktop notifications**
+  in the contact list. Clicking it opens the conversation.
+
+In **Do not disturb** there are no sounds and no desktop notifications, only the counters.
+
+## Mail
 
 ### Reading
 
@@ -86,7 +154,7 @@ Folders show the newest 200 messages.
 
 ### Writing
 
-1. Choose **Write**, or **Write** next to a person in **Contacts**.
+1. Choose **Write a letter**, or the envelope button in a chat.
 2. **To (UIN):** start typing a number or a name; suggestions show matching users.
 3. **Subject:** one line, up to 200 characters.
 4. **Message:** up to 10,000 characters, line breaks are kept.
@@ -97,19 +165,12 @@ the recipient opens the message.
 
 ### Notifications
 
-While any page is open, the site checks for new mail every 20 seconds. When something
-arrives:
+On pages other than the messenger, the site checks every 20 seconds. When something arrives:
 
-- the red number next to **Inbox** goes up;
+- the number next to **Mail** or **Messenger** goes up;
 - the browser tab shows the count, for example `(2) ICQ1.0 - Inbox`;
 - a short sound plays. Browsers allow sound only after you have clicked somewhere on the page
   at least once.
-
-## Contacts
-
-**Contacts** lists all other users with photo, name and UIN. People who used the site in the
-last 5 minutes are in the **Online** group with a green marker, everybody else is in
-**Offline**. **Write** next to a name opens a message with the recipient filled in.
 
 ## Your profile
 
@@ -117,6 +178,7 @@ last 5 minutes are in the **Online** group with a green marker, everybody else i
 photo. Below it you can change:
 
 - first and last name, e-mail, phone and gender;
+- **city** and **about me** (optional), shown on your info card to other users;
 - the photo (optional; the same rules as at registration, the old photo is deleted);
 - the password: type the **current password** and the new one. The current password is only
   needed when you change the password.
@@ -161,6 +223,7 @@ activated once by whoever installs the system (see [INSTALL.md](INSTALL.md), ste
 | This login is already taken. / This email is already registered. | choose a different one |
 | The photo must be at least 800 px wide. | choose a larger picture |
 | There is no user with this UIN. | check the recipient's number |
+| You can only write to people in your contact list. | send them a request and wait until they accept |
 | This link is invalid or has expired. | request a new reset link |
 | Access denied. | the page is for administrators, or the form expired; reload the page |
 | Something went wrong. Please try again later. | a server problem; the details are in the server log |

@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/users.php';
 require_once __DIR__ . '/../includes/messages.php';
+require_once __DIR__ . '/../includes/presence.php';
 
 $admin = require_admin();   // role is checked on the server, not by hiding a link
 $adminId = (int)$admin['id'];
@@ -67,7 +68,7 @@ mail_nav($adminId, 'admin/users.php', '../');
     </thead>
     <tbody>
     <?php foreach ($rows as $u):
-        $isOnline = is_online($u['last_activity']);
+        $presence = presence_of($u); // what other users see
         $isSelf   = (int)$u['id'] === $adminId;
     ?>
       <tr>
@@ -75,7 +76,7 @@ mail_nav($adminId, 'admin/users.php', '../');
         <td><?= e($u['login']) ?></td>
         <td><?= e($u['first_name'] . ' ' . $u['last_name']) ?></td>
         <td><?= e($u['role']) ?></td>
-        <td><?= $isOnline ? 'online' : 'offline' ?></td>
+        <td><span class="status-dot st-<?= e($presence) ?>"></span> <?= e(presence_label($presence)) ?></td>
         <td><?= e(msg_time($u['created_at'])) ?></td>
         <td class="actions">
           <a href="edit.php?id=<?= e((string)$u['id']) ?>">Edit</a>

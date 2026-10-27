@@ -8,7 +8,7 @@ require_once __DIR__ . '/includes/image.php';
 
 start_secure_session();
 if (!empty($_SESSION['uid'])) {
-    header('Location: profile.php');
+    header('Location: chat.php');
     exit;
 }
 
@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $id = user_create($clean, $photo);
                 login_user($id);
-                header('Location: profile.php');
+                header('Location: chat.php');
                 exit;
             } catch (Throwable $ex) {
                 delete_photo($photo); // do not leave an orphan file

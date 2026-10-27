@@ -146,6 +146,7 @@ once (they are safe to run again):
 ```bash
 docker exec -i uin-mariadb mariadb -u root -prootpass uin_mail < migrate_stage7.sql
 docker exec -i uin-mariadb mariadb -u root -prootpass uin_mail < migrate_password_reset.sql
+docker exec -i uin-mariadb mariadb -u root -prootpass uin_mail < migrate_messenger.sql
 ```
 
 ## 3. Local settings and secrets
@@ -217,7 +218,7 @@ Every setting can be an environment variable or a key in the local file (environ
 | `UIN_MAIL_FROM` | no | `no-reply@icq1.local` | sender address |
 | `UIN_CONFIG_FILE` | no | `../uin-mail.local.php` | path to the local file (environment variable only) |
 
-Fixed values in `config.php`: inactivity timeout 1200 s, online window 300 s, photo width
+Fixed values in `config.php`: inactivity timeout 1200 s, online window 90 s, auto Away after 600 s, photo width
 800 px, JPEG quality 90, reset link lifetime 1800 s.
 
 Check that the file is found and the keys are valid:
@@ -297,7 +298,7 @@ with `UIN-Mail` or `ICQ1.0`. Users only see a generic message.
 | `DB connection failed: [2002] No such file or directory` | `DB_HOST` is `localhost`; set `127.0.0.1` |
 | `DB connection failed: [2002] Connection refused` | the container is not running: `docker ps -a`, `docker start uin-mariadb` |
 | `DB connection failed: Access denied` | `DB_PASS` differs from `MARIADB_PASSWORD` |
-| `Table '...login_attempts' doesn't exist` | old database; apply the migrations (step 2) |
+| `Table '...login_attempts' doesn't exist` (or `contacts`, `chat_messages`, `Unknown column 'status'`) | old database; apply the migrations: `make migrate`, or step 2 |
 | container `Exited`, log says `Can't read from a directory 'stdin'` | started outside the project folder; remove the stray `schema.sql` directory, the container and the volume, then start again from `ICQ1.0/` |
 | `Not Found` for `/` | the server was started outside the project folder |
 | page without styling | `assets/style.css` missing |

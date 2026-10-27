@@ -2,9 +2,10 @@
 declare(strict_types=1);
 
 // Sessions, login state, roles and CSRF protection. Include with require_once.
-// API scripts (e.g. api/unread.php) must call define('AUTH_API', true) before
-// require_login(): background polling then does not count as user activity
-// (so the 20-minute timeout still works) and errors are returned as JSON.
+// API scripts (api/*.php) call define('AUTH_API', true) before require_login():
+// errors are then returned as JSON, and GET requests (background polling) do not count
+// as user activity, so the 20-minute timeout still works. POST requests (sending a
+// message, changing status) are real actions and do extend the session.
 
 require_once __DIR__ . '/db.php';
 
@@ -36,6 +37,13 @@ function auth_is_https(): bool
 {
     return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (int)($_SERVER['SERVER_PORT'] ?? 0) === 443;
+}
+
+// Passive request = background polling (GET to an API script). It keeps the user "online"
+// but is not a user action: it neither extends the session nor resets the Away timer.
+function auth_is_passive(): bool
+{
+    return defined('AUTH_API') && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET';
 }
 
 // Browser fingerprint bound to the session (hijacking check).
@@ -103,7 +111,7 @@ function start_secure_session(): void
             $_SESSION['timed_out'] = $expired;
             return;
         }
-        if (!defined('AUTH_API')) {
+        if (!auth_is_passive()) {
             $_SESSION['last'] = time(); // only real user actions extend the session
         }
     }
@@ -122,7 +130,7 @@ function login_user(int $userId): void
         'csrf' => bin2hex(random_bytes(32)),
     ];
 
-    $st = db()->prepare('UPDATE users SET last_activity = NOW() WHERE id = ?');
+    $st = db()->prepare('UPDATE users SET last_activity = NOW(), last_seen = NOW() WHERE id = ?');
     $st->execute([$userId]);
 }
 
@@ -130,6 +138,12 @@ function login_user(int $userId): void
 function logout_user(): void
 {
     start_secure_session();
+
+    // Show the user as offline right away instead of after the online window.
+    if (!empty($_SESSION['uid'])) {
+        $st = db()->prepare('UPDATE users SET last_seen = NULL, typing_to = NULL WHERE id = ?');
+        $st->execute([(int)$_SESSION['uid']]);
+    }
     $_SESSION = [];
 
     $p = session_get_cookie_params();
@@ -158,8 +172,8 @@ function require_login(): array
     // Read the user from the DB on every request, so a changed role
     // or a deleted account takes effect immediately.
     $st = db()->prepare(
-        'SELECT id, uin, login, first_name, last_name, gender, photo_path,
-                role, last_activity, created_at
+        'SELECT id, uin, login, first_name, last_name, gender, photo_path, role,
+                status, status_text, city, about, last_activity, last_seen, created_at
            FROM users WHERE id = ?'
     );
     $st->execute([$_SESSION['uid']]);
@@ -170,10 +184,16 @@ function require_login(): array
         auth_stop(401, auth_url('login.php'));
     }
 
-    if (!defined('AUTH_API')) {
-        $st = db()->prepare('UPDATE users SET last_activity = NOW() WHERE id = ?');
-        $st->execute([$user['id']]);
+    if (auth_is_passive()) {
+        // Heartbeat only, written at most every 15 s to keep polling cheap.
+        $st = db()->prepare(
+            'UPDATE users SET last_seen = NOW()
+              WHERE id = ? AND (last_seen IS NULL OR last_seen < NOW() - INTERVAL 15 SECOND)'
+        );
+    } else {
+        $st = db()->prepare('UPDATE users SET last_activity = NOW(), last_seen = NOW() WHERE id = ?');
     }
+    $st->execute([$user['id']]);
 
     return $user;
 }

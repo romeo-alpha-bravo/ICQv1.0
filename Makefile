@@ -37,7 +37,7 @@ db:              ## Open the MariaDB console as the app user
 	docker compose exec db sh -c 'mariadb -u"$$MARIADB_USER" -p"$$MARIADB_PASSWORD" uin_mail'
 
 migrate:         ## Apply the SQL migrations to an existing database (as root)
-	for f in migrate_stage7.sql migrate_password_reset.sql; do \
+	for f in migrate_stage7.sql migrate_password_reset.sql migrate_messenger.sql; do \
 	  docker compose exec -T db sh -c 'mariadb -uroot -p"$$MARIADB_ROOT_PASSWORD" uin_mail' < $$f; done
 
 reset:           ## DELETE all data (database and photos) and start from scratch
