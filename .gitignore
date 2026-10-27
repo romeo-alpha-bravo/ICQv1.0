@@ -3,3 +3,4 @@
 uploads/*
 !uploads/.htaccess
 !uploads/default.jpg
+.env

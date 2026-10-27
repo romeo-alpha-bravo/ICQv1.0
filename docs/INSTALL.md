@@ -1,7 +1,71 @@
 # Installation and configuration
 
-This guide sets up ICQ1.0 on a development machine (macOS or Linux) with the database in
-Docker and the PHP built-in web server. Notes for a real server are at the end.
+This guide sets up ICQ1.0 on a development machine (macOS or Linux). The recommended way is
+the Docker Compose stack; the manual setup with the PHP built-in server follows after it.
+Notes for a real server are at the end.
+
+## Recommended: Docker Compose
+
+The whole stack runs in four containers, so nothing except Docker has to be installed.
+
+```
+ browser ──► web (nginx :8080) ──FastCGI──► php (php-fpm) ──► db (MariaDB)
+                  │ static files                  │
+                  └── assets/, uploads/           └──SMTP──► mailpit (:8025 web inbox)
+```
+
+| Service | Image | Role | Reachable from your computer |
+|---|---|---|---|
+| `web` | `nginx:1.27-alpine` | serves static files, passes `*.php` to php-fpm, blocks internal files | `127.0.0.1:8080` |
+| `php` | built from `docker/php/Dockerfile` (PHP 8.3 FPM + pdo_mysql, gd, imagick, exif) | runs the application | no |
+| `db` | `mariadb:11` | database; `schema.sql` runs on the first start | no |
+| `mailpit` | `axllent/mailpit` | catches every e-mail the app sends | `127.0.0.1:8025` |
+
+### Start
+
+```bash
+make env       # 1. creates .env with random passwords and keys (chmod 600)
+make up        # 2. builds the PHP image and starts everything
+make ps        #    all services should become "healthy"
+make admin     # 3. sets password, e-mail and phone of the default admin
+```
+
+Open <http://localhost:8080>. Password-reset mails appear at <http://localhost:8025>.
+
+Without `make`: `cp .env.example .env`, fill in the four empty values (passwords and two
+keys from `openssl rand -base64 32`), then `docker compose up -d --build` and
+`docker compose exec php php install_admin.php`.
+
+### What the stack does for security
+
+- Only nginx and the Mailpit inbox are published, and only on `127.0.0.1`. The database and
+  php-fpm are reachable only inside the Compose network.
+- nginx returns 404 for `includes/`, `docker/`, `docs/`, hidden files (`.git`, `.env`),
+  `*.sql`, `*.md`, `config.php` and `install_admin.php`; nothing under `/uploads/` is ever
+  passed to PHP.
+- After `schema.sql`, `docker/db/02-least-privilege.sh` reduces the app user to
+  `SELECT, INSERT, UPDATE, DELETE`.
+- Secrets live only in `.env` (ignored by Git and by the Docker build).
+- PHP errors go to the container log (`make logs`), never to the browser; PHP and nginx do
+  not reveal their versions.
+- Every service has a health check; nginx waits for php, php waits for the database.
+
+### Everyday commands
+
+| Command | Does |
+|---|---|
+| `make logs` | follow all logs (PHP errors included) |
+| `make ps` | status and health of the containers |
+| `make db` | MariaDB console as the app user |
+| `make shell` | shell in the PHP container |
+| `make migrate` | apply `migrate_*.sql` to a database created by an older `schema.sql` |
+| `make down` / `make up` | stop / start (data is kept in the volumes `dbdata` and `uploads`) |
+| `make reset` | **delete all data** and start from scratch |
+
+Code is bind-mounted into the containers, so edits to PHP, CSS and JS apply on reload.
+Rebuild (`make up`) only after changing files in `docker/`.
+
+The rest of this guide describes running without Docker.
 
 ## 1. Requirements
 

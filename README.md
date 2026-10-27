@@ -25,32 +25,28 @@ University assignment for *BVWA2 – Vývoj webových aplikací II*. Plain PHP, 
 
 | Part | Technology |
 |---|---|
-| Server | PHP 8.1 or newer (developed on 8.5), built-in server or Apache |
+| Server | nginx + PHP 8.3 FPM in Docker; also runs on PHP 8.1+ with the built-in server or Apache |
 | Database | MariaDB 11 (MySQL 8 also works), accessed only through PDO |
 | Front end | HTML5, one hand-written CSS file, a little vanilla JavaScript (`fetch`) |
 | PHP extensions | `pdo_mysql`, `openssl`, `mbstring`, `gd` (or `imagick` for TIFF), optionally `exif` |
 
 ## Quick start
 
-Full instructions, including every setting, are in [docs/INSTALL.md](docs/INSTALL.md).
+Requires Docker with Compose (Docker Desktop or OrbStack on macOS). Full instructions,
+including the variant without Docker, are in [docs/INSTALL.md](docs/INSTALL.md).
 
 ```bash
-# 1. Database in Docker (run from the project folder)
-docker run -d --name uin-mariadb \
-  -e MARIADB_ROOT_PASSWORD=rootpass -e MARIADB_DATABASE=uin_mail \
-  -e MARIADB_USER=uin_app -e MARIADB_PASSWORD=YOUR_DB_PASSWORD \
-  -p 127.0.0.1:3306:3306 -v uin_mariadb_data:/var/lib/mysql \
-  -v "$(pwd)/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro" mariadb:11
-
-# 2. Local settings with the DB password and two encryption keys
-#    (see docs/INSTALL.md, step 3), saved as ../uin-mail.local.php
-
-# 3. Finish the default admin account and start the site
-php install_admin.php
-php -S localhost:8000
+make env      # creates .env with random DB passwords and encryption keys
+make up       # builds and starts nginx, php-fpm, MariaDB and Mailpit
+make admin    # activates the default admin account
 ```
 
-Open <http://localhost:8000> and log in as `admin`.
+| Address | What |
+|---|---|
+| <http://localhost:8080> | the application (log in as `admin`) |
+| <http://localhost:8025> | Mailpit, the local inbox for password-reset e-mails |
+
+`make` alone lists all shortcuts (logs, database console, reset, ...).
 
 ## Project structure
 
@@ -95,7 +91,11 @@ ICQ1.0/
 ├── schema.sql             database schema and the default admin row
 ├── migrate_stage7.sql     adds login_attempts to an older database
 ├── migrate_password_reset.sql  adds password_resets to an older database
-└── install_admin.php      one-time CLI script that activates the admin account
+├── install_admin.php      one-time CLI script that activates the admin account
+├── docker-compose.yml     the whole stack: web, php, db, mailpit
+├── docker/                nginx config, PHP image, DB init script
+├── .env.example           template for secrets (real .env is never committed)
+└── Makefile               shortcuts: make env / up / admin / logs / reset
 ```
 
 ## Documentation
